@@ -1,0 +1,3850 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>NY AUTOBET — Premium AutoBet</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f81f7'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Arial,sans-serif' font-weight='bold' fill='white' text-anchor='middle'%3EK%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css-autobet.css" />
+</head>
+<body>
+
+<!-- ═══ SOURCE GUARD — friction layer (bypassed only by DEFAULT_KEY super-user) ═══ -->
+<script>
+(function kpSourceGuard(){
+  /* Locked for everyone EXCEPT the default super-user key. The flag is set after
+     the key gate validates; until then (and for all regular keys) we lock down. */
+  function locked(){ return sessionStorage.getItem('kp_is_default') !== '1'; }
+
+  /* Block right-click context menu */
+  document.addEventListener('contextmenu', function(e){ if(locked()){ e.preventDefault(); return false; } }, true);
+
+  /* Block view-source / save / print / devtools shortcuts */
+  document.addEventListener('keydown', function(e){
+    if(!locked()) return;
+    var k = (e.key || '').toLowerCase();
+    var ctrl = e.ctrlKey || e.metaKey;
+    if(
+      e.key === 'F12' ||
+      (ctrl && e.shiftKey && (k==='i' || k==='j' || k==='c')) ||  /* DevTools / inspect / console */
+      (ctrl && (k==='u')) ||                                       /* view source */
+      (ctrl && (k==='s')) ||                                       /* save page */
+      (ctrl && (k==='p'))                                          /* print */
+    ){ e.preventDefault(); e.stopPropagation(); return false; }
+  }, true);
+
+  /* Block image/text drag-out */
+  document.addEventListener('dragstart', function(e){ if(locked()) e.preventDefault(); }, true);
+
+  /* Toggle a body class so CSS can disable text selection while locked */
+  function apply(){ if(document.body) document.body.classList.toggle('kp-locked', locked()); }
+  if(document.readyState !== 'loading') apply();
+  else document.addEventListener('DOMContentLoaded', apply);
+  window.kpApplySourceGuard = apply;   /* re-called after the key gate resolves */
+})();
+</script>
+
+<!-- ═══ REUSABLE LOGO (yin-yang + circuit ring) ═══ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="kpMark" viewBox="0 0 100 100">
+    <defs>
+      <linearGradient id="kpg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#58a6ff"/><stop offset="1" stop-color="#2f81f7"/>
+      </linearGradient>
+    </defs>
+    <circle cx="50" cy="50" r="47" fill="none" stroke="url(#kpg)" stroke-width="1.4" stroke-dasharray="3 5" opacity=".75"/>
+    <circle cx="50" cy="3" r="2.4" fill="#58a6ff"/><circle cx="97" cy="50" r="2.4" fill="#58a6ff"/>
+    <circle cx="50" cy="97" r="2.4" fill="#58a6ff"/><circle cx="3" cy="50" r="2.4" fill="#58a6ff"/>
+    <circle cx="50" cy="50" r="40" fill="url(#kpg)"/>
+    <path d="M50,10 a40,40 0 0,1 0,80 a20,20 0 0,1 0,-40 a20,20 0 0,0 0,-40z" fill="#0d1117"/>
+    <circle cx="50" cy="30" r="6" fill="#0d1117"/><circle cx="50" cy="70" r="6" fill="url(#kpg)"/>
+    <circle cx="50" cy="30" r="2" fill="#58a6ff"/><circle cx="50" cy="70" r="2" fill="#0d1117"/>
+  </symbol>
+</svg>
+
+<!-- ═══ KEY GATE ═══ -->
+<div id="rootGate">
+  <div class="kp-gate-inner">
+    <svg class="kp-logo kp-gate-mark" width="64" height="64" aria-hidden="true"><use href="#kpMark"/></svg>
+    <div class="kp-gate-logo">NY AUTOBET</div>
+    <div class="kp-gate-sub">LICENSE KEY REQUIRED</div>
+
+    <div class="kp-input-label">LICENSE KEY</div>
+    <div class="kp-input-row">
+      <span class="kp-prompt">❯</span>
+      <input type="text" id="rootKey" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+             maxlength="29" autocomplete="off" autocapitalize="characters"
+             style="letter-spacing:2px;font-family:'JetBrains Mono',monospace;font-size:13px" />
+    </div>
+
+    <div class="kp-gate-err" id="rootErr"></div>
+    <button class="kp-btn-main" id="rootBtn" style="margin-top:14px">UNLOCK</button>
+  </div>
+</div>
+<script>
+(function(){
+  var G  = document.getElementById('rootGate');
+  var KI = document.getElementById('rootKey');
+  var E  = document.getElementById('rootErr');
+  var B  = document.getElementById('rootBtn');
+
+  /* Already unlocked this session? Only skip gate if BOTH valid flag AND key are present */
+  if(sessionStorage.getItem('kp_key_valid')==='1' && sessionStorage.getItem('kp_key')){
+    G.style.display='none'; return;
+  }
+  /* Clear any stale/old session data so gate shows fresh */
+  sessionStorage.removeItem('kp_key_valid');
+  sessionStorage.removeItem('kp_key');
+  sessionStorage.removeItem('kp_is_default');
+  sessionStorage.removeItem('kp_bound_phone');
+  sessionStorage.removeItem('kp_bound_platform');
+  sessionStorage.removeItem('kp_session_id');
+
+  /* Auto-format key as user types: XXXXX-XXXXX-XXXXX-XXXXX-XXXXX */
+  KI.addEventListener('input', function(){
+    var raw = KI.value.replace(/[^A-Za-z0-9]/g,'').toUpperCase().slice(0,25);
+    var fmt = raw.match(/.{1,5}/g);
+    KI.value = fmt ? fmt.join('-') : raw;
+  });
+
+  function unlock(){
+    var key = KI.value.trim();
+    if(!key){ E.textContent='Enter your license key'; return; }
+
+    B.disabled=true; B.textContent='Checking...'; E.textContent='';
+    fetch('/api/keys/check',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ key: key, deviceId: (localStorage.getItem('kp_browser_id') || '') })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d.ok){
+        sessionStorage.setItem('kp_key_valid','1');
+        sessionStorage.setItem('kp_key', key);
+        sessionStorage.setItem('kp_is_default', d.isDefault ? '1' : '0');
+        sessionStorage.setItem('kp_bound_phone', d.boundPhone || '');
+        sessionStorage.setItem('kp_bound_platform', d.boundPlatform || '');
+        G.style.display='none';
+        /* Re-apply permissions now that sessionStorage is populated */
+        if(typeof applyKeyPermissions === 'function') applyKeyPermissions();
+      } else {
+        E.textContent = d.msg || 'Invalid or disabled key';
+        KI.style.borderColor='var(--red)';
+        setTimeout(function(){ KI.style.borderColor=''; E.textContent=''; }, 2000);
+      }
+    })
+    .catch(function(){ E.textContent='Server error'; })
+    .finally(function(){ B.disabled=false; B.textContent='UNLOCK'; });
+  }
+
+  B.addEventListener('click', unlock);
+  KI.addEventListener('keydown', function(e){ if(e.key==='Enter') unlock(); });
+})();
+</script>
+
+<!-- ═══ TOAST ═══ -->
+<div id="abToastWrap" class="ab-toast-wrap"></div>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="abLoginSection" class="kp-screen">
+  <div class="kp-gate-inner">
+    <svg class="kp-logo kp-gate-mark" width="64" height="64" aria-hidden="true"><use href="#kpMark"/></svg>
+    <div class="kp-gate-logo">NY AUTOBET</div>
+    <div class="kp-gate-sub">AUTO BET ENGINE 5.0</div>
+
+    <div class="kp-input-label">PLATFORM</div>
+    <div class="kp-platform-row" id="abPlatformRow"></div>
+
+    <div class="kp-input-label">PHONE</div>
+    <input type="tel" id="abPhone" placeholder="Phone number" autocomplete="off" style="margin-bottom:10px" />
+
+    <div class="kp-input-label">PASSWORD</div>
+    <input type="password" id="abPwd" placeholder="Password" autocomplete="off" />
+
+    <div id="abLoginStatus" class="status-msg" style="margin:10px 0;min-height:18px"></div>
+
+    <button class="kp-btn-main" id="abBtnCaptcha" style="margin-bottom:10px">🔑 GET CAPTCHA</button>
+
+    <div id="abCaptchaSection" style="display:none">
+      <div class="captcha-box" id="abCaptchaBox">
+        <img id="abCaptchaBg" class="captcha-bg" />
+        <img id="abCaptchaPiece" class="captcha-piece" />
+      </div>
+      <div class="slider-wrap">
+        <div class="slider-track" id="abSliderTrack">
+          <div class="slider-thumb" id="abSliderThumb"></div>
+        </div>
+      </div>
+      <div id="abCaptchaStatus" class="status-msg"></div>
+      <button class="kp-btn-main" id="abBtnLogin" style="margin-top:8px">▶ LOGIN</button>
+    </div>
+
+    <!-- Back to dashboard (visible when already have accounts) -->
+    <button class="kp-sec-btn" id="abBtnBackToDash" style="display:none;margin-top:12px;width:100%">← Back to Dashboard</button>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div id="abDashboard" style="display:none">
+
+  <!-- HEADER -->
+  <header class="kp-header">
+    <div class="kp-brand">
+      <svg class="kp-logo" width="30" height="30" aria-hidden="true"><use href="#kpMark"/></svg>
+      <span class="kp-brand-text">NY AUTOBET</span>
+      <span class="kp-brand-ver">5.0</span>
+    </div>
+    <div class="kp-header-spacer"></div>
+    <div class="kp-balance" id="abBalance">₹—</div>
+    <div class="ab-engine-pill" id="abEngine">STOPPED</div>
+    <button class="kp-btn-logout" id="abBtnLogout" title="Logout this account"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
+  </header>
+
+  <!-- ACCOUNTS BAR (admin) -->
+  <div class="kp-accounts-bar" id="abAccountsBar">
+    <button class="kp-acct-listbtn" id="abBtnAcctList" title="Switch account">
+      <span class="kp-acct-listbtn-ic">👥</span>
+      <span class="kp-acct-listbtn-cur" id="abAcctCurLabel">No account</span>
+      <span class="kp-acct-listbtn-count" id="abAcctCount">0</span>
+      <span class="kp-acct-listbtn-caret">▾</span>
+    </button>
+    <button class="kp-acct-add" id="abBtnAddAcct" title="Add Account" style="display:none">＋</button>
+  </div>
+
+  <!-- ACCOUNTS POPUP (admin) -->
+  <div class="kp-acct-modal" id="abAcctModal">
+    <div class="kp-acct-modal-box">
+      <div class="kp-acct-modal-head">
+        <span>Accounts <small id="abAcctModalCount"></small></span>
+        <button class="kp-acct-modal-close" id="abAcctModalClose">✕</button>
+      </div>
+      <div class="kp-acct-modal-list" id="abAcctModalList"></div>
+    </div>
+  </div>
+
+  <!-- TWO COLUMN GRID -->
+  <div class="kp-grid">
+
+    <!-- ══════ LEFT COLUMN ══════ -->
+    <div class="kp-col-left">
+
+      <!-- Hero -->
+      <div class="kp-hero">
+        <div class="kp-hero-top">
+          <span class="kp-hero-label">🔮 PREDICTION</span>
+          <span class="kp-hero-period" id="abPeriod">—</span>
+        </div>
+        <div class="ab-hero-pred pred-wait" id="abPred">WAIT</div>
+        <div class="kp-hero-cd-row">
+          <span class="kp-hero-cd" id="abCD">--s</span>
+        </div>
+        <div class="kp-hero-subs" id="abHeroSubs"></div>
+        <div class="kp-hero-bar"><div class="kp-hero-bar-fill" id="abHeroBar"></div></div>
+      </div>
+
+      <!-- Controls -->
+      <div class="kp-ctrl">
+        <div class="kp-controls-row">
+          <div class="kp-engine-btns">
+            <button class="kp-btn-eng kp-btn-start" id="abBtnStart">▶ START</button>
+            <button class="kp-btn-eng kp-btn-stop" id="abBtnStop" style="display:none">■ STOP</button>
+          </div>
+          <div class="kp-ctrl-actions">
+            <button class="kp-sec-btn btn-danger" id="abBtnClearStats" title="Reset Stats">Reset</button>
+          </div>
+        </div>
+        <div class="kp-mini-stats">
+          <div class="kp-ms"><div class="kp-ms-l">BETS</div><div class="kp-ms-v ab-stat-val" id="abBetsCount">0</div></div>
+          <div class="kp-ms"><div class="kp-ms-l">W / L</div><div class="kp-ms-v ab-stat-val" id="abWL">0 / 0</div></div>
+          <div class="kp-ms"><div class="kp-ms-l">P&amp;L</div><div class="kp-ms-v ab-stat-val vg" id="abPnl">₹0</div></div>
+          <div class="kp-ms"><div class="kp-ms-l">LEVEL</div><div class="kp-ms-v ab-stat-val" id="abLvl">LV1</div></div>
+          <div class="kp-ms"><div class="kp-ms-l">HIGH</div><div class="kp-ms-v ab-stat-val" id="abHighLvl">LV1</div></div>
+          <div class="kp-ms"><div class="kp-ms-l">TIME</div><div class="kp-ms-v" id="abSessionTime" style="font-family:var(--mono);font-size:11px">00:00:00</div></div>
+        </div>
+      </div>
+
+      <!-- Bet Status -->
+      <div class="ab-bet-status s-idle" id="abBetStatus" style="display:none">
+        <span class="kp-bs-icon" id="abBsIcon">⏳</span>
+        <div style="flex:1;min-width:0">
+          <div class="kp-bs-label" id="abBsLabel">READY</div>
+          <div class="kp-bs-detail" id="abBsDetail"></div>
+        </div>
+        <span class="kp-bs-timer" id="abBsTimer"></span>
+        <div class="kp-bs-bar"><div class="kp-bs-bar-fill" id="abBsBar" style="width:0%"></div></div>
+      </div>
+      <div class="ab-bet-status s-idle" id="abLayer2BetStatus" style="display:none">
+        <span class="kp-bs-icon" id="abLayer2BsIcon">⏳</span>
+        <div style="flex:1;min-width:0">
+          <div class="kp-bs-label" id="abLayer2BsLabel">LAYER-2 READY</div>
+          <div class="kp-bs-detail" id="abLayer2BsDetail"></div>
+        </div>
+        <span class="kp-bs-timer" id="abLayer2BsTimer"></span>
+        <div class="kp-bs-bar"><div class="kp-bs-bar-fill" id="abLayer2BsBar" style="width:0%"></div></div>
+      </div>
+
+      <!-- Max Level Banner (informational — shown to every viewer) -->
+      <div class="ab-maxlvl-banner" id="abMaxLvlBanner" style="display:none">
+        <div class="banner-title">🚨 BETTING STOPPED</div>
+        <div class="banner-msg" id="abMaxLvlMsg">All levels exhausted.</div>
+      </div>
+
+      <!-- Activity Log -->
+      <div class="kp-card" id="secLog">
+        <div class="kp-card-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <div class="kp-card-title"><span class="icon">📋</span> ACTIVITY LOG</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="kp-sec-actions" onclick="event.stopPropagation()">
+              <button class="kp-sec-btn btn-danger" id="abBtnClearLog" title="Clear Log">Clear</button>
+            </div>
+            <span class="kp-chevron">▼</span>
+          </div>
+        </div>
+        <div class="kp-card-body p0">
+          <div class="kp-log" id="abLog" style="padding:10px 14px"></div>
+        </div>
+      </div>
+
+      <!-- Prediction + Bet History -->
+      <div class="kp-card collapsed" id="secPredHistory" style="border-color:var(--cyan)">
+        <div class="kp-card-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <div class="kp-card-title"><span class="icon">🔮</span> PREDICTION + BET HISTORY</div>
+          <span class="kp-chevron">▼</span>
+        </div>
+        <div class="kp-card-body p0">
+          <div class="kp-tbl-scroll">
+            <table class="ab-history-table">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th>Actual Result</th>
+                  <th>L1 Prediction</th>
+                  <th>L1 Prediction W/L</th>
+                  <th>L1 Bet W/L</th>
+                  <th>L1 Bet</th>
+                  <th>L1 Profit</th>
+                  <th>L2 Prediction</th>
+                  <th>L2 Bet W/L</th>
+                  <th>L2 Bet</th>
+                  <th>L2 Profit</th>
+                </tr>
+              </thead>
+              <tbody id="abPredHistBody"></tbody>
+            </table>
+          </div>
+          <label style="display:inline-flex;align-items:center;gap:6px;margin:10px 12px 0;font-size:12px;color:var(--text2);cursor:pointer" onclick="event.stopPropagation()">
+            <input type="checkbox" id="abPredHistBetsOnly" /> Show only bet placed histories
+          </label>
+          <div class="ab-history-empty" id="abPredHistEmpty">No merged history yet</div>
+          <div class="kp-pager" id="abPredHistPager" style="display:none">
+            <button class="kp-pg-btn" id="abPredHistPrev">◀</button>
+            <span class="kp-pg-info" id="abPredHistPageInfo">1 / 1</span>
+            <button class="kp-pg-btn" id="abPredHistNext">▶</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- ══════ RIGHT COLUMN ══════ -->
+    <div class="kp-col-right">
+
+      <!-- Layer 2 Add Button -->
+      <div class="kp-card" id="secLayer2Add" style="margin-bottom:10px">
+        <div class="kp-card-body" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <div class="kp-card-title"><span class="icon">🧩</span> AUTOBET LAYERS</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">Main + Layer-2 run independently on the same account</div>
+          </div>
+          <button class="kp-btn-main" id="abBtnAddLayer2" type="button">＋ Add Layer-2</button>
+        </div>
+      </div>
+
+      <!-- Config -->
+      <div class="kp-card" id="secConfig">
+        <div class="kp-card-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <div class="kp-card-title"><span class="icon">⚙️</span> MAIN AUTOBET</div>
+          <span class="kp-chevron">▼</span>
+        </div>
+        <div class="kp-card-body">
+          <div class="kp-config-row">
+            <div class="kp-config-field">
+              <label>BASE AMOUNT (₹)</label>
+              <input type="number" id="abBaseAmt" min="1" max="10000" value="2" step="1" />
+            </div>
+            <div class="kp-config-field">
+              <label>MAX LEVEL</label>
+              <input type="number" id="abMaxLvl" min="1" max="15" value="10" step="1" />
+            </div>
+          </div>
+          <div class="kp-config-preview" id="abConfigPreview">—</div>
+
+          
+          <!-- ── TARGET LEVEL BET PANEL ── -->
+          <div class="kp-divider"></div>
+          <div class="kp-cmpd-wrap" id="abTlbWrap">
+            <div class="kp-cmpd-header">
+              <div class="kp-cmpd-header-left">
+                <span class="kp-cmpd-icon">🎯</span>
+                <div>
+                  <div class="kp-cmpd-title">TARGET LEVEL BET</div>
+                  <div class="kp-cmpd-subtitle">Engine waits for specific level sequence to place bets</div>
+                </div>
+              </div>
+              <label class="kp-toggle" title="Toggle Target Level Bet">
+                <input type="checkbox" id="abTargetLevelBet" />
+                <span class="kp-toggle-slider"></span>
+              </label>
+            </div>
+            <div class="kp-cmpd-body" id="abTargetLevelBody" style="display:none">
+              <div class="kp-cmpd-inputs">
+                <div class="kp-cmpd-field">
+                  <label class="kp-cmpd-label">TARGET MARTINGALE LEVEL</label>
+                  <select id="abTargetLevelSel" class="kp-cmpd-input" style="height: 38px;">
+                    <option value="1">Level 1</option><option value="2">Level 2</option><option value="3">Level 3</option>
+                    <option value="4">Level 4</option><option value="5">Level 5</option><option value="6">Level 6</option>
+                    <option value="7">Level 7</option><option value="8">Level 8</option><option value="9">Level 9</option>
+                    <option value="10">Level 10</option><option value="11">Level 11</option><option value="12">Level 12</option>
+                    <option value="13">Level 13</option><option value="14">Level 14</option><option value="15">Level 15</option>
+                  </select>
+                  <div class="kp-cmpd-hint">Wait for this prediction level to place real bet</div>
+                </div>
+              </div>
+              <div style="margin-top:8px;font-size:12px;font-weight:bold;text-align:center" id="abTlbStatus"></div>
+            </div>
+          </div>
+          <!-- ── END TARGET LEVEL BET ── -->
+
+          <!-- ─── COMPOUNDING MODE PANEL ─── -->
+          <div class="kp-divider"></div>
+          <div class="kp-cmpd-wrap" id="abCompoundingWrap">
+            <!-- Header row: icon + title + toggle -->
+            <div class="kp-cmpd-header">
+              <div class="kp-cmpd-header-left">
+                <span class="kp-cmpd-icon">🔄</span>
+                <div>
+                  <div class="kp-cmpd-title">COMPOUNDING MODE</div>
+                  <div class="kp-cmpd-subtitle">Levels = entered fund + real session P&amp;L (wins minus losses)</div>
+                </div>
+              </div>
+              <label class="kp-toggle" title="Toggle Compounding Mode">
+                <input type="checkbox" id="abCompoundToggle" />
+                <span class="kp-toggle-slider"></span>
+              </label>
+            </div>
+
+            <!-- Settings (shown only when ON) -->
+            <div class="kp-cmpd-body" id="abCompoundBody" style="display:none">
+              <div class="kp-cmpd-inputs">
+                <div class="kp-cmpd-field">
+                  <label class="kp-cmpd-label">₹ ENTERED COMPOUNDING FUND</label>
+                  <input type="number" id="abCompoundFund" class="kp-cmpd-input" min="10" max="1000000" step="1" value="2000" placeholder="e.g. 2000" />
+                  <div class="kp-cmpd-hint">Total fund split across all levels</div>
+                </div>
+                <div class="kp-cmpd-field">
+                  <label class="kp-cmpd-label">NO. OF LEVELS</label>
+                  <select id="abCompoundLevels" class="kp-cmpd-input">
+                    <option value="2">2 Levels</option>
+                    <option value="3">3 Levels</option>
+                    <option value="4" selected>4 Levels</option>
+                    <option value="5">5 Levels</option>
+                    <option value="6">6 Levels</option>
+                    <option value="7">7 Levels</option>
+                    <option value="8">8 Levels</option>
+                    <option value="9">9 Levels</option>
+                    <option value="10">10 Levels</option>
+                  </select>
+                  <div class="kp-cmpd-hint">Geometric Martingale split (2.15×)</div>
+                </div>
+              </div>
+              <div class="kp-config-preview" id="abCompoundLive" style="margin-top:8px;text-align:center">Live allocation: —</div>
+
+              <!-- Live Level Preview -->
+              <div class="kp-cmpd-preview" id="abCompoundPreview"></div>
+
+              <!-- Win Growth Projection Table -->
+              <div class="kp-cmpd-proj-title">📊 WIN GROWTH PROJECTION <span style="font-weight:400">(LV1 example; live mode adds every win's actual profit)</span></div>
+              <div class="kp-cmpd-table-wrap">
+                <table class="kp-cmpd-table" id="abCompoundTable">
+                  <thead><tr id="abCompoundHead"></tr></thead>
+                  <tbody id="abCompoundBody2"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <!-- ─── END COMPOUNDING MODE ─── -->
+
+          <!-- ─── LEVEL JUMP PANEL ─── -->
+          <div class="kp-divider"></div>
+          <div class="kp-cmpd-wrap" id="abLevelJumpWrap">
+            <div class="kp-cmpd-header">
+              <div class="kp-cmpd-header-left">
+                <span class="kp-cmpd-icon">🔀</span>
+                <div>
+                  <div class="kp-cmpd-title">LEVEL JUMP</div>
+                  <div class="kp-cmpd-subtitle">Bets jump to designated prediction levels per fund level</div>
+                </div>
+              </div>
+              <label class="kp-toggle" title="Toggle Level Jump Mode">
+                <input type="checkbox" id="abLevelJumpToggle" />
+                <span class="kp-toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="kp-cmpd-body" id="abLevelJumpBody" style="display:none">
+              <div class="kp-lj-options-title">SELECT JUMP SEQUENCE</div>
+
+              <div class="kp-lj-options-grid">
+                <!-- Option 1 -->
+                <label class="kp-lj-card active">
+                  <div class="kp-lj-radio-wrap">
+                    <input type="radio" name="abLevelJumpOpt" value="option1" checked />
+                    <span class="kp-lj-opt-title">Option 1</span>
+                  </div>
+                  <div class="kp-lj-seq-text">Level 1, 3, 5, 7, 9, 11, 12, 13, 14, 15</div>
+                  <div class="kp-lj-chips" id="abLjChips1"></div>
+                </label>
+
+                <!-- Option 2 -->
+                <label class="kp-lj-card">
+                  <div class="kp-lj-radio-wrap">
+                    <input type="radio" name="abLevelJumpOpt" value="option2" />
+                    <span class="kp-lj-opt-title">Option 2</span>
+                  </div>
+                  <div class="kp-lj-seq-text">Level 1, 3, 5, 7, 9, 10, 11, 12, 13, 14, 15, 16</div>
+                  <div class="kp-lj-chips" id="abLjChips2"></div>
+                </label>
+
+                <!-- Option 3 -->
+                <label class="kp-lj-card">
+                  <div class="kp-lj-radio-wrap">
+                    <input type="radio" name="abLevelJumpOpt" value="option3" />
+                    <span class="kp-lj-opt-title">Option 3</span>
+                  </div>
+                  <div class="kp-lj-seq-text">Level 2, 4, 6, 8, 10, 11, 12, 13, 14, 15, 16</div>
+                  <div class="kp-lj-chips" id="abLjChips3"></div>
+                </label>
+              </div>
+
+              <div class="kp-config-preview" id="abLevelJumpStatus" style="margin-top:10px;text-align:center">Level Jump: Ready</div>
+            </div>
+          </div>
+          <!-- ─── END LEVEL JUMP PANEL ─── -->
+
+          <div class="kp-divider"></div>
+          <div class="kp-formula-label">⏱️ GAME MODE</div>
+          <div class="kp-mode-toggle" id="abModeToggle">
+            <button type="button" class="kp-mode-btn active" data-mode="WinGo_30S" onclick="setGameMode('WinGo_30S')">⚡ 30 SEC</button>
+            <button type="button" class="kp-mode-btn" data-mode="WinGo_1M" onclick="setGameMode('WinGo_1M')">🕐 1 MIN</button>
+          </div>
+          <div class="kp-divider"></div>
+          <div class="kp-formula-label">🧠 PREDICTION FORMULA</div>
+          <div class="kp-formula-active" id="abFormulaActive">
+            <span id="abFormulaName">—</span>
+            <span class="kp-formula-change" id="abBtnFormulaPopup">Change ▸</span>
+          </div>
+          <div class="kp-watch-row">
+            <div style="flex:1">
+              <div class="kp-watch-title">✋ Manual Bet Follower</div>
+              <div class="kp-watch-desc">Wait for the Superuser Big/Small command from this level onward.</div>
+            </div>
+            <label class="kp-toggle">
+              <input type="checkbox" id="abManualFollowerToggle" />
+              <span class="kp-toggle-slider"></span>
+            </label>
+          </div>
+          <div class="kp-config-field" id="abManualFollowerLevelWrap" style="display:none;margin-top:8px">
+            <label>FOLLOW FROM LEVEL</label>
+            <select id="abManualFollowerLevel"></select>
+          </div>
+          <div class="kp-watch-row">
+            <div style="flex:1">
+              <div class="kp-watch-title">👁️ Watch
+                <input type="number" id="abWatchCount" class="ab-watch-count" min="1" max="10" value="1" />
+                Loss, Then Bet
+              </div>
+              <div class="kp-watch-desc" id="abWatchDesc">Observes virtually, starts real betting after wrong prediction(s).</div>
+            </div>
+            <label class="kp-toggle">
+              <input type="checkbox" id="abWatchToggle" />
+              <span class="kp-toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Layer-2 Panel -->
+      <div class="kp-card" id="secLayer2" style="display:none; border-color:var(--amber)">
+        <div class="kp-card-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <div class="kp-card-title"><span class="icon">🧩</span> LAYER-2 AUTOBET</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="ab-engine-pill pill-stopped" id="abLayer2Engine" style="font-size:10px">STOPPED</span>
+            <button class="kp-sec-btn btn-danger" id="abBtnLayer2Remove" title="Remove Layer-2" onclick="event.stopPropagation()">Remove</button>
+            <span class="kp-chevron">▼</span>
+          </div>
+        </div>
+        <div class="kp-card-body">
+          <div class="kp-controls-row" style="margin-bottom:12px">
+            <div class="kp-engine-btns">
+              <button class="kp-btn-eng kp-btn-start" id="abBtnLayer2Start">▶ START</button>
+              <button class="kp-btn-eng kp-btn-stop" id="abBtnLayer2Stop" style="display:none">■ STOP</button>
+            </div>
+            <div class="kp-ctrl-actions">
+              <button class="kp-sec-btn btn-danger" id="abBtnLayer2Reset" title="Reset Layer-2 stats">Reset</button>
+            </div>
+          </div>
+          <div class="kp-mini-stats">
+            <div class="kp-ms"><div class="kp-ms-l">BETS</div><div class="kp-ms-v ab-stat-val" id="abLayer2Bets">0</div></div>
+            <div class="kp-ms"><div class="kp-ms-l">W / L</div><div class="kp-ms-v ab-stat-val" id="abLayer2WL">0 / 0</div></div>
+            <div class="kp-ms"><div class="kp-ms-l">P&amp;L</div><div class="kp-ms-v ab-stat-val vg" id="abLayer2Pnl">₹0</div></div>
+            <div class="kp-ms"><div class="kp-ms-l">LEVEL</div><div class="kp-ms-v ab-stat-val" id="abLayer2Lvl">LV1</div></div>
+          </div>
+          <div class="kp-divider"></div>
+          <div class="kp-config-row">
+            <div class="kp-config-field">
+              <label>BASE AMOUNT (₹)</label>
+              <input type="number" id="abLayer2BaseAmt" min="1" max="10000" value="2" step="1" />
+            </div>
+            <div class="kp-config-field">
+              <label>MAX LEVEL</label>
+              <input type="number" id="abLayer2MaxLvl" min="1" max="15" value="10" step="1" />
+            </div>
+          </div>
+          <div class="kp-formula-label">🧠 PREDICTION FORMULA</div>
+          <div class="kp-formula-active" id="abLayer2FormulaActive">
+            <span id="abLayer2FormulaName">—</span>
+            <span class="kp-formula-change" id="abBtnLayer2FormulaPopup">Change ▸</span>
+          </div>
+          <div class="kp-divider"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px; margin-bottom:8px">
+            <div class="kp-formula-label" style="margin:0">MARTINGALE FUND LEVELS</div>
+            <label class="kp-edit-toggle" onclick="event.stopPropagation()">
+              <input type="checkbox" id="abLayer2EditToggle" /> ✏️ Edit
+            </label>
+          </div>
+          <div id="abLayer2Levels" class="kp-config-preview">Set the stake for each loss level.</div>
+          <button class="kp-btn-main" id="abBtnLayer2SaveLevels" type="button" style="margin-top:10px">SAVE LAYER-2 FUNDS</button>
+
+          <!-- ─── LAYER-2 AUTO STOP PANEL ─── -->
+          <div class="kp-divider"></div>
+          <div class="kp-cmpd-wrap" id="abLayer2AutoStopWrap" style="border:1px solid rgba(239,68,68,0.35);border-radius:var(--r);background:rgba(239,68,68,0.04)">
+            <div class="kp-cmpd-header" style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between">
+              <div class="kp-cmpd-header-left" style="display:flex;align-items:center;gap:8px">
+                <span class="kp-cmpd-icon" style="font-size:16px;background:rgba(239,68,68,0.15);color:var(--red);border-radius:6px;padding:4px">🛑</span>
+                <div>
+                  <div class="kp-cmpd-title" style="font-size:12px;font-weight:700">LAYER-2 AUTO STOP</div>
+                  <div class="kp-cmpd-subtitle" style="font-size:10px;color:var(--text3)">Stops only Layer-2 when condition is met</div>
+                </div>
+              </div>
+              <button class="kp-sec-btn" id="abLayer2AutoStopToggleBtn" type="button" style="font-size:11px;padding:3px 10px">ENABLE</button>
+            </div>
+            <div class="kp-cmpd-body" id="abLayer2AutoStopContent" style="display:none;padding:10px 12px">
+              <!-- Option Selection -->
+              <div class="ab-autostop-options">
+                <label class="ab-autostop-option">
+                  <input type="radio" name="autoStopTypeLayer2" value="timer" id="abLayer2AutoStopTimer" />
+                  <span class="ab-autostop-label">⏱️ Target Timer</span>
+                </label>
+                <label class="ab-autostop-option">
+                  <input type="radio" name="autoStopTypeLayer2" value="profit" id="abLayer2AutoStopProfit" />
+                  <span class="ab-autostop-label">💰 Target Profit</span>
+                </label>
+                <label class="ab-autostop-option">
+                  <input type="radio" name="autoStopTypeLayer2" value="level" id="abLayer2AutoStopLevel" />
+                  <span class="ab-autostop-label">📊 Level Skip</span>
+                </label>
+              </div>
+
+              <div class="kp-divider" style="margin:10px 0"></div>
+
+              <!-- Timer Option -->
+              <div id="abLayer2AutoStopTimerPanel" style="display:none">
+                <div class="kp-config-field">
+                  <label>SET TIMER (HH:MM)</label>
+                  <div style="display:flex;gap:8px;align-items:center">
+                    <input type="number" id="abLayer2TimerHours" min="0" max="23" value="0" placeholder="HH" style="flex:1;text-align:center" />
+                    <span style="color:var(--text2)">:</span>
+                    <input type="number" id="abLayer2TimerMinutes" min="0" max="59" value="5" placeholder="MM" style="flex:1;text-align:center" />
+                  </div>
+                </div>
+                <button class="kp-btn-main" id="abLayer2AutoStopTimerSubmit" type="button" style="margin-top:10px">⏱️ SET TIMER (LAYER-2)</button>
+                <div id="abLayer2TimerStatus" class="kp-config-preview" style="margin-top:10px;text-align:center">—</div>
+              </div>
+
+              <!-- Profit Option -->
+              <div id="abLayer2AutoStopProfitPanel" style="display:none">
+                <div class="kp-config-field">
+                  <label>TARGET PROFIT (₹)</label>
+                  <input type="number" id="abLayer2TargetProfit" min="1" max="100000" value="100" step="1" placeholder="Enter profit amount" />
+                </div>
+                <button class="kp-btn-main" id="abLayer2AutoStopProfitSubmit" type="button" style="margin-top:10px">💰 SET TARGET (LAYER-2)</button>
+                <div id="abLayer2ProfitStatus" class="kp-config-preview" style="margin-top:10px;text-align:center">—</div>
+              </div>
+
+              <!-- Level Option -->
+              <div id="abLayer2AutoStopLevelPanel" style="display:none">
+                <div class="kp-config-field">
+                  <label>SELECT LEVEL TO STOP AT</label>
+                  <select id="abLayer2LevelSelect" style="width:100%;padding:10px 12px;background:#111;border:1px solid var(--border2);color:var(--text);border-radius:var(--r);cursor:pointer">
+                    <option value="">-- Select Level --</option>
+                  </select>
+                </div>
+                <button class="kp-btn-main" id="abLayer2AutoStopLevelSubmit" type="button" style="margin-top:10px">📊 SET LEVEL (LAYER-2)</button>
+                <div id="abLayer2LevelStatus" class="kp-config-preview" style="margin-top:10px;text-align:center">—</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:8px">⚠️ Stops Layer-2 after next win once level is touched</div>
+              </div>
+
+              <!-- Live Status -->
+              <div class="kp-divider" style="margin:10px 0"></div>
+              <div class="kp-config-preview" id="abLayer2AutoStopLiveStatus" style="text-align:center;color:var(--amber)">Active: —</div>
+            </div>
+
+            <!-- Disabled State -->
+            <div id="abLayer2AutoStopDisabled" style="text-align:center;color:var(--text2);padding:12px 10px;font-size:12px">
+              Layer-2 AutoStop is currently <strong>DISABLED</strong>. Enable to activate stopping conditions for Layer-2 only.
+            </div>
+          </div>
+          <!-- ─── END LAYER-2 AUTO STOP PANEL ─── -->
+
+          <div class="kp-divider"></div>
+          <div class="kp-formula-label">📋 PREDICTION / HISTORY</div>
+          <div class="ab-hero-pred pred-wait" id="abLayer2Pred" style="margin-top:10px">WAIT</div>
+          <div class="kp-log" id="abLayer2Log" style="margin-top:10px;padding:10px 12px;max-height:160px;overflow:auto"></div>
+        </div>
+      </div>
+
+      <!-- AutoStop Tab -->
+      <div class="kp-card" id="secAutoStop">
+        <div class="kp-card-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <div class="kp-card-title"><span class="icon">🛑</span> AUTO STOP (DEFAULT / LAYER-1)</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="kp-sec-btn" id="abAutoStopToggleBtn">ENABLE</button>
+            <span class="kp-chevron">▼</span>
+          </div>
+        </div>
+        <div class="kp-card-body">
+          <!-- Hidden when disabled -->
+          <div id="abAutoStopContent" style="display:none">
+            <!-- Option Selection -->
+            <div class="ab-autostop-options">
+              <label class="ab-autostop-option">
+                <input type="radio" name="autoStopType" value="timer" id="abAutoStopTimer" />
+                <span class="ab-autostop-label">⏱️ Target Timer</span>
+              </label>
+              <label class="ab-autostop-option">
+                <input type="radio" name="autoStopType" value="profit" id="abAutoStopProfit" />
+                <span class="ab-autostop-label">💰 Target Profit</span>
+              </label>
+              <label class="ab-autostop-option">
+                <input type="radio" name="autoStopType" value="level" id="abAutoStopLevel" />
+                <span class="ab-autostop-label">📊 Level Skip</span>
+              </label>
+            </div>
+
+            <div class="kp-divider" style="margin:14px 0"></div>
+
+            <!-- Timer Option -->
+            <div id="abAutoStopTimerPanel" style="display:none">
+              <div class="kp-config-field">
+                <label>SET TIMER (HH:MM)</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input type="number" id="abTimerHours" min="0" max="23" value="0" placeholder="HH" style="flex:1;text-align:center" />
+                  <span style="color:var(--text2)">:</span>
+                  <input type="number" id="abTimerMinutes" min="0" max="59" value="5" placeholder="MM" style="flex:1;text-align:center" />
+                </div>
+              </div>
+              <button class="kp-btn-main" id="abAutoStopTimerSubmit" style="margin-top:10px">⏱️ SET TIMER</button>
+              <div id="abTimerStatus" class="kp-config-preview" style="margin-top:10px;text-align:center">—</div>
+            </div>
+
+            <!-- Profit Option -->
+            <div id="abAutoStopProfitPanel" style="display:none">
+              <div class="kp-config-field">
+                <label>TARGET PROFIT (₹)</label>
+                <input type="number" id="abTargetProfit" min="1" max="100000" value="100" step="1" placeholder="Enter profit amount" />
+              </div>
+              <button class="kp-btn-main" id="abAutoStopProfitSubmit" style="margin-top:10px">💰 SET TARGET</button>
+              <div id="abProfitStatus" class="kp-config-preview" style="margin-top:10px;text-align:center">—</div>
+            </div>
+
+            <!-- Level Option -->
+            <div id="abAutoStopLevelPanel" style="display:none">
+              <div class="kp-config-field">
+                <label>SELECT LEVEL TO STOP AT</label>
+                <select id="abLevelSelect" style="width:100%;padding:10px 12px;background:#111;border:1px solid var(--border2);color:var(--text);border-radius:var(--r);cursor:pointer">
+                  <option value="">-- Select Level --</option>
+                </select>
+              </div>
+              <button class="kp-btn-main" id="abAutoStopLevelSubmit" style="margin-top:10px">📊 SET LEVEL</button>
+              <div id="abLevelStatus" class="kp-config-preview" style="margin-top:10px;text-align:center">—</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:8px">⚠️ Stops immediately when level is reached, after result arrives (no wait for win)</div>
+            </div>
+
+            <!-- Live Status for all options -->
+            <div class="kp-divider" style="margin:14px 0"></div>
+            <div class="kp-config-preview" id="abAutoStopLiveStatus" style="text-align:center;color:var(--amber)">Active: —</div>
+          </div>
+
+          <!-- Disabled State -->
+          <div id="abAutoStopDisabled" style="text-align:center;color:var(--text2);padding:20px 0">
+            AutoStop (Default / Layer-1) is currently <strong>DISABLED</strong>. Enable to activate stopping conditions for Layer-1.
+          </div>
+        </div>
+      </div>
+
+      <div class="kp-card" id="secManualBet" style="display:none">
+        <div class="kp-card-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <div class="kp-card-title"><span class="icon">✋</span> MANUAL BETTING</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="kp-live-dot">SUPERUSER</span>
+            <span class="kp-chevron">▼</span>
+          </div>
+        </div>
+        <div class="kp-card-body">
+          <div class="kp-config-preview">Current period: <strong id="abManualPeriod">Waiting for period</strong></div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button type="button" class="kp-btn-side kp-btn-side-big" id="abManualCommandBig">BIG</button>
+            <button type="button" class="kp-btn-side kp-btn-side-small" id="abManualCommandSmall">SMALL</button>
+          </div>
+          <div class="kp-watch-desc" id="abManualCommandStatus" style="margin-top:8px">Choose a side to send it to all accounts waiting on this period.</div>
+          <div class="kp-manual-subtitle">LIVE WAITING ACCOUNTS</div>
+          <div id="abManualWaitingAccounts" class="kp-manual-accounts"><div class="kp-manual-empty">No accounts waiting for a command.</div></div>
+          <div class="kp-manual-subtitle">MANUAL BET LOGS</div>
+          <div id="abManualLogs" class="kp-manual-logs"><div class="kp-manual-empty">No manual commands yet.</div></div>
+        </div>
+      </div>
+
+      <!-- Martingale Levels -->
+      <div class="kp-card" id="secLevels">
+        <div class="kp-card-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <div class="kp-card-title"><span class="icon">📊</span> MARTINGALE LEVELS</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <label class="kp-edit-toggle" onclick="event.stopPropagation()">
+              <input type="checkbox" id="abEditToggle" /> ✏️ Edit
+            </label>
+            <span class="kp-chevron">▼</span>
+          </div>
+        </div>
+        <div class="kp-card-body">
+          <div id="abLevels" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+          <div class="kp-config-preview" id="abLevelsRisk" style="margin-top:10px">—</div>
+        </div>
+      </div>
+
+      <!-- Bot Bet History -->
+      <div class="kp-card collapsed" id="secBetHistory" style="display:none">
+        <div class="kp-card-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <div class="kp-card-title"><span class="icon">🎰</span> BET HISTORY</div>
+          <span class="kp-chevron">▼</span>
+        </div>
+        <div class="kp-card-body p0">
+          <div class="kp-tbl-scroll">
+            <table class="ab-history-table">
+              <thead><tr><th>#</th><th>Period</th><th>Pred</th><th>LV</th><th>Amt</th><th>Res</th><th>P&amp;L</th></tr></thead>
+              <tbody id="abHistoryBody"></tbody>
+            </table>
+          </div>
+          <div class="ab-history-empty" id="abHistoryEmpty">No bets placed yet</div>
+          <div class="kp-pager" id="abBetHistPager" style="display:none">
+            <button class="kp-pg-btn" id="abBetHistPrev">◀</button>
+            <span class="kp-pg-info" id="abBetHistPageInfo">1 / 1</span>
+            <button class="kp-pg-btn" id="abBetHistNext">▶</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- My Bet Record -->
+      <div class="kp-card collapsed" id="secBetRecord">
+        <div class="kp-card-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <div class="kp-card-title"><span class="icon">💰</span> MY BET RECORD</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="kp-sec-actions" onclick="event.stopPropagation()">
+              <button class="kp-sec-btn" id="abBtnRefreshBR" title="Refresh">Refresh</button>
+            </div>
+            <span class="kp-chevron">▼</span>
+          </div>
+        </div>
+        <div class="kp-card-body p0">
+          <div id="abBetRecordList" class="kp-bet-list">
+            <div class="kp-empty">Click Refresh to load</div>
+          </div>
+          <div class="kp-pager">
+            <button class="kp-pg-btn" id="abBetRecordPrev">◀</button>
+            <span class="kp-pg-info" id="abBetRecordPageInfo">1 / 1</span>
+            <button class="kp-pg-btn" id="abBetRecordNext">▶</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /right -->
+
+  </div><!-- /grid -->
+
+  <!-- ═══ HISTORY EXPORT ═══ -->
+  <div class="kp-card collapsed" id="secExport" style="margin:12px 16px 0">
+    <div class="kp-card-head" onclick="this.parentElement.classList.toggle('collapsed')">
+      <div class="kp-card-title"><span class="icon">📥</span> GAME HISTORY EXPORT</div>
+      <span class="kp-chevron">▼</span>
+    </div>
+    <div class="kp-card-body">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div style="flex:1;min-width:100px">
+          <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Records</label>
+          <input type="number" id="expRecords" value="500" min="10" max="500" step="10" style="width:100%;padding:7px 10px;background:var(--bg2,#1a1a2e);border:1px solid var(--border,#2a2a45);border-radius:6px;color:var(--text,#e0e0f0);font-size:12px" />
+        </div>
+        <div style="flex:1;min-width:100px">
+          <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Game</label>
+          <input type="text" id="expGame" value="WinGo_30S" style="width:100%;padding:7px 10px;background:var(--bg2,#1a1a2e);border:1px solid var(--border,#2a2a45);border-radius:6px;color:var(--text,#e0e0f0);font-size:12px" />
+        </div>
+        <div style="display:flex;gap:6px;align-self:flex-end;padding-bottom:1px">
+          <button id="expBtnFetch" onclick="startHistoryExport()" style="padding:8px 18px;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">⚡ Fetch</button>
+          <button id="expBtnDownload" onclick="downloadHistoryCSV()" style="padding:8px 18px;background:linear-gradient(135deg,#059669,#065f46);border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;display:none;white-space:nowrap">⬇ CSV</button>
+        </div>
+      </div>
+      <div id="expProgress" style="display:none;margin-bottom:8px">
+        <div style="background:#1a1a2e;border-radius:999px;height:6px;overflow:hidden">
+          <div id="expBar" style="height:100%;background:linear-gradient(90deg,#7c3aed,#06b6d4);border-radius:999px;transition:width .3s;width:0%"></div>
+        </div>
+        <div id="expProgressText" style="font-size:11px;color:var(--muted,#555577);text-align:center;margin-top:4px">—</div>
+      </div>
+      <div id="expLog" style="background:#0a0a14;border:1px solid #1e1e35;border-radius:6px;padding:8px 10px;font-size:11px;color:#6677aa;max-height:120px;overflow-y:auto;display:none;font-family:monospace"></div>
+      <div id="expStats" style="display:none;margin-top:10px;display:none">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="expStatsGrid"></div>
+      </div>
+    </div>
+  </div><!-- /secExport -->
+
+</div><!-- /dashboard -->
+
+
+<!-- ═══ FORMULA POPUP ═══ -->
+<div class="kp-overlay" id="abFormulaPopup" style="display:none">
+  <div class="kp-modal-box">
+    <div class="kp-modal-head">
+      🧠 SELECT FORMULA
+      <button class="kp-modal-close" id="abBtnFormulaClose">&times;</button>
+    </div>
+    <div class="ab-formula-grid" id="abFormulaGrid"></div>
+  </div>
+</div>
+
+<!-- ═══ Socket.IO Client ═══ -->
+<script src="/socket.io/socket.io.js"></script>
+
+<!-- ═══ MULTI-ACCOUNT LOGIN + DASHBOARD LOGIC ═══ -->
+<script>
+(function(){
+  'use strict';
+
+  /* ═══ Multi-Account State ═══ */
+  var accounts = [];        // [{ phone, platform, lotteryToken, webapiToken }]
+  var currentView = null;   // "platform:phone" id of the account currently displayed — matches Account#id server-side
+  var captchaId    = null;
+  var sliderX      = 0;
+  var trackData    = [];
+  var trackStart   = '';
+  var dragging     = false;
+  var deviceId     = 'kp3_' + Math.random().toString(36).slice(2, 10);
+
+  /* Dhani logs in with a `browserId` fingerprint instead of a deviceId.
+     A real browser's stays constant across visits, so this is generated
+     once and persisted in localStorage (survives tab/session boundaries,
+     unlike the sessionStorage state above) rather than re-rolled per login. */
+  function getBrowserId() {
+    var id = localStorage.getItem('kp_browser_id');
+    if (!id) {
+      id = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+      localStorage.setItem('kp_browser_id', id);
+    }
+    return id;
+  }
+  var socket       = null;
+  var betRecordPage = 1;
+  var betRecordLoaded = false;
+  var _manualBetShown = false;  // tracks the maxLossActive panel's own show/hide transition (see renderState)
+
+  /* ═══ Key Gate State ═══ */
+  var kpKey            = sessionStorage.getItem('kp_key') || '';
+  var kpSessionId      = sessionStorage.getItem('kp_session_id') || '';
+  var kpLastPnl        = 0;
+  var kpBalanceSaved   = false;
+  var kpPendingBalance = 0; // holds balance until sessionId is ready
+
+  /* ═══ Platform Registry ═══
+     Fetched from the server so a new platform (e.g. a 3rd site added
+     later) shows up here with zero client changes. Falls back to GOA
+     alone if the fetch fails, so login still works offline-ish. */
+  var PLATFORM_META = { goa: {
+    id: 'goa', name: 'GOA Games',
+    captcha: { bgW: 280, bgH: 175, slW: 56, slH: 175 },
+    login: { user: 'username', pass: 'pwd', type: 'logintype', typeValue: 'mobile', pack: 'packId' },
+  } };
+  var platformList = ['goa'];
+  var selectedPlatform = sessionStorage.getItem('kp_platform') || 'goa';
+  var platformsReady = fetch('/api/platforms').then(function(r){ return r.json(); }).then(function(list){
+    if (Array.isArray(list) && list.length > 0) {
+      PLATFORM_META = {};
+      platformList = [];
+      list.forEach(function(p){ PLATFORM_META[p.id] = p; platformList.push(p.id); });
+      if (!PLATFORM_META[selectedPlatform]) selectedPlatform = platformList[0];
+    }
+    renderPlatformRow();
+  }).catch(function(){ /* keep the GOA-only fallback above */ });
+
+  function acctId(platform, phone) { return (platform || 'goa') + ':' + phone; }
+
+  /* ═══ Persistence ═══ */
+  function saveAccounts() {
+    sessionStorage.setItem('kp_accounts', JSON.stringify(accounts));
+    sessionStorage.setItem('kp_current_view', currentView || '');
+  }
+  function loadAccounts() {
+    try { accounts = JSON.parse(sessionStorage.getItem('kp_accounts') || '[]'); } catch(e) { accounts = []; }
+    /* Upgrade path: sessions saved before multi-platform existed have no
+       .platform on each account and a bare-phone kp_current_view. Both
+       default to GOA — the only platform that existed at the time. */
+    accounts.forEach(function(a){ if (!a.platform) a.platform = 'goa'; });
+    var savedView = sessionStorage.getItem('kp_current_view') || null;
+    currentView = savedView && savedView.indexOf(':') === -1 ? acctId('goa', savedView) : savedView;
+  }
+  loadAccounts();
+
+  /* Always read these fresh — gate script may have run after IIFE init */
+  function kpGetIsDefault()  { return sessionStorage.getItem('kp_is_default') === '1'; }
+  function kpGetBoundPhone() { return sessionStorage.getItem('kp_bound_phone') || ''; }
+  function kpGetKey()        { return sessionStorage.getItem('kp_key') || ''; }
+
+  var kpIsDefault   = kpGetIsDefault();
+  var kpBoundPhone  = kpGetBoundPhone();
+  var kpKey         = kpGetKey();
+  var currentPeriod = null;
+  var latestState = null;
+
+
+  /* Apply super-user vs regular-user UI restrictions.
+     Called once at load and again after gate resolves. */
+  function applyKeyPermissions() {
+    kpIsDefault  = kpGetIsDefault();
+    kpBoundPhone = kpGetBoundPhone();
+    kpKey        = kpGetKey();
+
+    if (!kpIsDefault) {
+      /* Remove from DOM entirely — not just hidden, completely gone */
+      var addBtn  = document.getElementById('abBtnAddAcct');
+      var acctBar = document.getElementById('abAccountsBar');
+      if (addBtn)  addBtn.remove();
+      if (acctBar) acctBar.remove();
+      if (accounts.length > 1) { accounts = accounts.slice(0, 1); saveAccounts(); }
+    }
+    lockPhoneField();
+    renderPlatformRow();
+    var manualTab = document.getElementById('secManualBet');
+    if (manualTab) manualTab.style.display = kpIsDefault ? '' : 'none';
+    if (window.kpApplySourceGuard) window.kpApplySourceGuard();   /* unlock right-click etc. for default key */
+  }
+
+  /* ═══ Formulas ═══ */
+  var FORMULAS = {
+    dna3:         { name: '🧬 DNA 3',         desc: '3-BS triplet pattern', tags: ['DNA', '160-Deep'] },
+    oracle:       { name: '🔮 ORACLE',        desc: 'Adaptive N-gram + Run-Momentum + Phase-Lock', tags: ['Adaptive', 'Deep', '3-Pillar'] },
+    patdb_v4:     { name: '🎯 PAT_DB v4.0',  desc: '7-layer: Pattern DB + Markov3/2/1 + Streak + Gap + Opposite Rule', tags: ['PAT_DB', '7-Layer'] },
+    titan_v3:     { name: '⚡ TITAN v3',      desc: 'Inverted PAT_DB (51.8% proven) + Recovery after 3L', tags: ['TITAN', 'Recovery'] },
+    cobra_strike: { name: '🐍 Cobra Strike', desc: 'DJB2 hash of issue+SIG7 seed → deterministic B/S signal, conf 75-98', tags: ['Hash', 'Deterministic'] },
+    itachi:       { name: '🔥 Itachi V30',   desc: 'State Machine + 9-len Pattern DB overlay (BULL/BEAR/CHOPPY/EXHAUSTION/HARMONIC)', tags: ['State-ML', '9-PatternDB', 'Multivariate'] },
+    n1n2:         { name: '🎲 N1/N2',        desc: 'Adaptive N1/N2 strategy — switch on loss', tags: ['N1N2', 'Adaptive'] },
+    zigzag:       { name: '⚡ ZigZag',       desc: 'Pure BIG↔SMALL toggle — seeds opposite of first result, flips every period', tags: ['ZigZag', 'Toggle'] },
+    zn1p:         { name: '🗳️ ZN1P',          desc: '3-formula majority vote: DhinaS1 + Last Result + ZigZag', tags: ['ZN1P', 'Majority'] },
+    eip:          { name: '🤖 EIP',           desc: '31-node ensemble: auto-selects best hash/lookback trader by accuracy', tags: ['EIP', '31-Node'] },
+    engine11:     { name: '🔱 Matrix 11',    desc: '11-formula ensemble majority vote: Mfreq + Pol + EIP + pattern + RAG + N1/N2', tags: ['Matrix11', 'Ensemble', '11-Vote'] },
+    aaab_corrector:{ name: '🔁 AAAB Corrector', desc: 'Fixed S-S-S-B sequence on (period % 4) + Auto-Corrector: WAITs when the last up-to-4 rounds show ZERO sequence matches (pattern inverted)', tags: ['AAAB', 'Sequence', 'Auto-Correct'] },
+    n1_auto:      { name: '📋 N1 1Auto',      desc: 'Copy-Cat: predict the last settled result. After any loss, skips exactly one round (WAIT), then resumes', tags: ['N1', 'Copy-Cat', 'Skip-on-Loss'] },
+    bet_violet:   { name: '🟣 Bet on Violet', desc: 'Always predicts Violet and bets the Violet color only', tags: ['Violet', 'Color', 'Fixed'] },
+    last_result:  { name: '🔁 Last Result',  desc: 'Predicts the latest settled Big/Small result for the upcoming period', tags: ['Big/Small', 'Copy-Cat'] },
+    ny-autobet1m:    { name: '⚡ NY AUTOBET 1M',   desc: 'WinGo 1-Minute engine: Streak Follower (last 3 same → continue) → else Majority Reversal (opposite of last-5 majority). Warms up after 5 rounds.', tags: ['NY AUTOBET', '1-MIN', 'Streak+Majority'], mode: 'WinGo_1M' },
+  };
+  /* Every existing formula is a 30S engine. 1-minute formulas (added later)
+     must carry mode:'WinGo_1M'. Default any untagged formula to 30S. */
+  Object.keys(FORMULAS).forEach(function(k){ if (!FORMULAS[k].mode) FORMULAS[k].mode = 'WinGo_30S'; });
+  var currentGameMode = 'WinGo_30S';   // tracks the active account's mode
+
+  /* ═══ DOM Refs ═══ */
+  var $ = function(id) { return document.getElementById(id); };
+  var loginSection  = $('abLoginSection');
+  var dashboard     = $('abDashboard');
+  var phoneEl       = $('abPhone');
+  var pwdEl         = $('abPwd');
+  var statusEl      = $('abLoginStatus');
+  var captchaBtn    = $('abBtnCaptcha');
+  var loginBtn      = $('abBtnLogin');
+  var captchaSec    = $('abCaptchaSection');
+
+  function lockPhoneField() {
+    var el = document.getElementById('abPhone');
+    if (!el) return; // DOM not ready yet
+    var bp = sessionStorage.getItem('kp_bound_phone') || kpBoundPhone;
+    if (!kpGetIsDefault() && bp) {
+      el.value    = bp;
+      el.readOnly = true;
+      el.style.opacity = '0.7';
+      el.title = 'This key is registered to ' + bp;
+    } else {
+      el.readOnly = false;
+      el.style.opacity = '';
+      el.title = '';
+    }
+  }
+  lockPhoneField();
+
+  /* Platform picker. A non-default key locks to whatever platform it
+     first bound to (see AccessKey.boundPlatform, server-side) — same
+     shape as the phone lock above. */
+  function renderPlatformRow() {
+    var row = $('abPlatformRow');
+    if (!row) return;
+    var boundPlatform = sessionStorage.getItem('kp_bound_platform') || '';
+    var locked = !kpGetIsDefault() && !!boundPlatform;
+    if (locked && PLATFORM_META[boundPlatform]) selectedPlatform = boundPlatform;
+    row.innerHTML = '';
+    platformList.forEach(function(pid){
+      var meta = PLATFORM_META[pid];
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'kp-platform-btn' + (pid === selectedPlatform ? ' active' : '');
+      btn.textContent = meta.name;
+      btn.disabled = locked && pid !== selectedPlatform;
+      btn.addEventListener('click', function(){
+        if (locked) return;
+        selectedPlatform = pid;
+        sessionStorage.setItem('kp_platform', pid);
+        renderPlatformRow();
+      });
+      row.appendChild(btn);
+    });
+  }
+  renderPlatformRow();
+
+  /* ═══ Helpers ═══ */
+  function status(msg, ok) {
+    statusEl.textContent = msg;
+    statusEl.className = 'status-msg' + (ok ? ' ok' : (ok === false ? ' err' : ''));
+  }
+
+  function toast(title, msg, type) {
+    var wrap = $('abToastWrap');
+    var el = document.createElement('div');
+    el.className = 'ab-toast t-' + (type || 'info');
+    el.innerHTML = '<strong>' + title + '</strong> ' + msg;
+    wrap.appendChild(el);
+    setTimeout(function(){ el.remove(); }, 4000);
+  }
+
+  function showLogin() {
+    loginSection.style.display = '';
+    dashboard.style.display = 'none';
+    $('abBtnBackToDash').style.display = (kpGetIsDefault() && accounts.length > 0) ? '' : 'none';
+    lockPhoneField();
+  }
+
+  function showDashboard() {
+    loginSection.style.display = 'none';
+    dashboard.style.display = '';
+    applyKeyPermissions();
+    connectSocket();
+  }
+
+  function formatPnl(v) {
+    return (v >= 0 ? '+' : '') + '₹' + v.toFixed(2);
+  }
+
+  var _sessionStart = 0;
+
+  function formatTime(ms) {
+    if (ms < 0) ms = 0;
+    var s = Math.floor(ms / 1000);
+    var h = Math.floor(s / 3600); s %= 3600;
+    var m = Math.floor(s / 60); s %= 60;
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+
+  /* ═══ Socket.IO Connection ═══ */
+  function connectSocket() {
+    if (socket && socket.connected) {
+      // Re-auth all accounts
+      reAuthAll();
+      return;
+    }
+    socket = io({ transports: ['websocket', 'polling'] });
+    window.KP_DEBUG = { get socket() { return socket; }, get currentView() { return currentView; }, get accounts() { return accounts; } }; // console debugging — socket/currentView are otherwise closure-scoped
+
+    socket.on('connect', function() {
+      console.log('[KP] Socket connected via ' + socket.io.engine.transport.name);
+      reAuthAll();
+    });
+
+    /* ── Server rejected the access key (deleted / disabled / wrong number) ── */
+    socket.on('authError', function(e) {
+      try { alert('Access denied: ' + ((e && e.msg) || 'Invalid access key')); } catch(_) {}
+      sessionStorage.removeItem('kp_key_valid');
+      sessionStorage.removeItem('kp_key');
+      sessionStorage.removeItem('kp_session_id');
+      location.reload();
+    });
+
+    /* ── Full state snapshot (for current view) ── */
+    socket.on('state', function(s) {
+      // Only render if this state is for our current view
+      if (s.id === currentView) {
+        latestState = s;
+        renderState(s);
+      }
+      // Auto-load bet record
+      if (!betRecordLoaded && s.loggedIn && s.id === currentView) {
+        betRecordLoaded = true;
+        socket.emit('getBetRecord', { page: 1 }); // targets the server's viewingId
+      }
+    });
+
+    /* ── Account list updates ── */
+    socket.on('accountList', function(list) {
+      renderAccountList(list);
+    });
+
+    /* ── Account removed ── */
+    socket.on('accountRemoved', function(d) {
+      accounts = accounts.filter(function(a) { return acctId(a.platform, a.phone) !== d.id; });
+      if (currentView === d.id) {
+        currentView = accounts.length > 0 ? acctId(accounts[0].platform, accounts[0].phone) : null;
+      }
+      saveAccounts();
+      if (accounts.length === 0) {
+        showLogin();
+      } else if (currentView) {
+        var cv = accounts.filter(function(a){ return acctId(a.platform, a.phone) === currentView; })[0];
+        if (cv) socket.emit('switchView', { phone: cv.phone, platform: cv.platform });
+      }
+    });
+
+    /* ── Countdown ── */
+    socket.on('countdown', function(d) {
+      if (d && d.layerId === 'layer2') return;
+      if (d && d.issue) {
+        currentPeriod = String(d.issue);
+        var manualPeriod = $('abManualPeriod');
+        if (manualPeriod) manualPeriod.textContent = '...' + currentPeriod.slice(-8);
+      }
+      $('abCD').textContent = d.secs + 's';
+      var pct = ((d.total - d.secs) / d.total * 100).toFixed(1);
+      $('abHeroBar').style.width = pct + '%';
+    });
+
+    socket.on('manualPeriod', function(d) {
+      if (d && d.issue) {
+        currentPeriod = String(d.issue);
+        $('abManualPeriod').textContent = '...' + currentPeriod.slice(-8);
+      }
+    });
+
+    socket.on('manualOverview', function(list) {
+      if (!kpIsDefault) return;
+      var el = $('abManualWaitingAccounts');
+      var rows = (list || []).filter(function(a) { return a.manualWaiting || a.pendingBet; });
+      if (!rows.length) {
+        el.innerHTML = '<div class="kp-manual-empty">No accounts waiting for a command.</div>';
+        return;
+      }
+      el.innerHTML = rows.map(function(a) {
+        var status = a.pendingBet ? 'PLACED ' + a.pendingBet.pred.toUpperCase() + ' · ₹' + a.pendingBet.amount : 'WAITING';
+        return '<div class="kp-manual-account-row"><span><b>' + (a.phone || a.id) + '</b><small>' + (a.platformName || a.platform || '') + '</small></span><span class="kp-manual-level">LV' + (a.level || 1) + '</span><span class="kp-manual-funds">₹' + Number(a.funds || 0).toFixed(2) + '</span><span class="kp-manual-status ' + (a.pendingBet ? 'placed' : 'waiting') + '">' + status + '</span></div>';
+      }).join('');
+    });
+
+    socket.on('manualLog', function(entry) {
+      if (!kpIsDefault) return;
+      var el = $('abManualLogs');
+      if (el.querySelector('.kp-manual-empty')) el.innerHTML = '';
+      var row = document.createElement('div');
+      row.className = 'kp-manual-log-row';
+      row.innerHTML = '<span>' + (entry.time || '') + '</span><strong>' + (entry.message || '') + '</strong>';
+      el.prepend(row);
+      while (el.children.length > 30) el.removeChild(el.lastChild);
+    });
+
+    socket.on('newDraw', function(d) {
+      if (d && d.nextIssue) {
+        currentPeriod = String(d.nextIssue);
+        $('abManualPeriod').textContent = '...' + currentPeriod.slice(-8);
+      }
+      if (d && typeof nexusOnDraw === 'function') nexusOnDraw(String(d.issue), d.bs, d.number);
+    });
+
+    /* ── Activity log ── */
+    socket.on('log', function(entry) {
+      addLogEntry(entry, entry && entry.layerId === 'layer2' ? $('abLayer2Log') : $('abLog'));
+    });
+
+    /* ── Bulk logs ── */
+    socket.on('logs', function(entries) {
+      var logEl = $('abLog');
+      logEl.innerHTML = '';
+      (entries || []).forEach(function(e) { addLogEntry(e); });
+    });
+
+    /* ── Toast ── */
+    socket.on('toast', function(d) {
+      toast(d.title, d.msg, d.type);
+    });
+
+    /* ── Bet Status ── */
+    socket.on('betStatus', function(d) {
+      var layer2 = d && d.layerId === 'layer2';
+      var el = $(layer2 ? 'abLayer2BetStatus' : 'abBetStatus');
+      el.style.display = '';
+      el.className = 'ab-bet-status s-' + (d.cls || 'idle');
+      var prefix = layer2 ? 'abLayer2Bs' : 'abBs';
+      $(prefix + 'Icon').textContent = d.icon || '⏳';
+      $(prefix + 'Label').textContent = (layer2 ? 'LAYER-2 · ' : 'LAYER-1 · ') + (d.label || '');
+      $(prefix + 'Detail').textContent = d.detail || '';
+      $(prefix + 'Timer').textContent = d.timer || '';
+      $(prefix + 'Bar').style.width = (d.bar || '0') + '%';
+    });
+    socket.on('countdown', function(d) {
+      if (d && d.layerId === 'layer2') {
+        $('abLayer2BsTimer').textContent = d.secs + 's';
+        $('abLayer2BsBar').style.width = (((d.total - d.secs) / d.total) * 100).toFixed(1) + '%';
+      }
+    });
+
+    /* ── Max Level Banner ── */
+    socket.on('maxLevel', function(d) {
+      /* Sets the specific loss message immediately; renderState (driven by
+         s.maxLossActive) is what actually owns show/hide now, so this only
+         needs to set an explicit value for the brief window before the
+         next 'state' event arrives — same 'block' fix as renderState. */
+      $('abMaxLvlBanner').style.display = 'block';
+      $('abMaxLvlMsg').textContent = d.msg || 'All levels exhausted.';
+    });
+
+    /* ── Bet Record ── */
+    socket.on('betRecord', function(d) {
+      renderBetRecord(d);
+    });
+
+    /* ── Export History Result ── */
+    _bindExpHistorySocket();
+
+    /* ── Re-auth: server re-logged in, update stored tokens ── */
+    socket.on('reauth', function(d) {
+      if (!d || !d.phone) return;
+      var acct = accounts.find(function(a) { return a.phone === d.phone && a.platform === (d.platform || 'goa'); });
+      if (acct) {
+        acct.lotteryToken = d.lotteryToken || acct.lotteryToken;
+        acct.webapiToken  = d.webapiToken  || acct.webapiToken;
+        saveAccounts();
+        toast('🔄 Re-Login', d.phone + ' session refreshed', 'info');
+        console.log('[KP] Reauth for ' + d.phone + ' — tokens updated');
+      }
+    });
+
+    socket.on('disconnect', function() {
+      console.log('[KP] Socket disconnected');
+    });
+  }
+
+  /* ── Re-auth all saved accounts on connect ── */
+  function reAuthAll() {
+    if (!socket) return;
+    accounts.forEach(function(a) {
+      socket.emit('auth', {
+        lotteryToken: a.lotteryToken,
+        webapiToken: a.webapiToken,
+        phone: a.phone,
+        platform: a.platform,
+        pwd: a.pwd || '',
+        fresh: a.fresh || false,
+        key: sessionStorage.getItem('kp_key') || '',
+        sessionId: sessionStorage.getItem('kp_session_id') || '',
+      });
+      delete a.fresh;
+    });
+    // Switch to current view
+    if (currentView) {
+      var cv = accounts.filter(function(a){ return acctId(a.platform, a.phone) === currentView; })[0];
+      if (cv) {
+        setTimeout(function() {
+          socket.emit('switchView', { phone: cv.phone, platform: cv.platform });
+        }, 500);
+      }
+    }
+  }
+
+  /* ═══ Account List (button + popup) ═══ */
+  var _acctList = [];
+  function renderAccountList(list) {
+    _acctList = list || [];
+
+    /* Button: show the CURRENT account's FULL mobile number + total count.
+       Server sends .id ("platform:phone") and .platformName on every row. */
+    var cur = _acctList.filter(function(a){ return a.id === currentView; })[0];
+    var lbl = $('abAcctCurLabel'); if (lbl) lbl.textContent = cur ? (cur.platformName + ' · ' + cur.phone) : (currentView || 'No account');
+    var cnt = $('abAcctCount');    if (cnt) cnt.textContent = _acctList.length;
+    var mc  = $('abAcctModalCount'); if (mc) mc.textContent = '(' + _acctList.length + ')';
+
+    /* Popup list: one row per account, FULL number + platform, switchable */
+    var box = $('abAcctModalList'); if (!box) return;
+    box.innerHTML = '';
+    _acctList.forEach(function(a) {
+      var row = document.createElement('div');
+      row.className = 'kp-acct-row' + (a.id === currentView ? ' active' : '');
+      row.setAttribute('data-id', a.id);
+      var statusCls = 'pill-' + (a.engine || 'stopped');
+      row.innerHTML = '<span class="kp-acct-row-check">' + (a.id === currentView ? '✓' : '') + '</span>'
+        + '<span class="kp-acct-row-phone">' + (a.platformName || a.platform) + ' · ' + a.phone + '</span>'
+        + '<span class="kp-acct-row-status ' + statusCls + '">' + (a.engine || 'stopped').toUpperCase() + '</span>'
+        + '<span class="kp-acct-row-bal">₹' + (a.balance || 0).toFixed(0) + '</span>'
+        + '<span class="kp-acct-row-pnl ' + ((a.pnl || 0) >= 0 ? 'vg' : 'vr') + '">' + formatPnl(a.pnl || 0) + '</span>';
+      row.addEventListener('click', function() { switchToAccount(a.platform, a.phone); closeAcctModal(); });
+      box.appendChild(row);
+    });
+  }
+
+  function openAcctModal()  { var m = $('abAcctModal'); if (m) m.classList.add('open'); }
+  function closeAcctModal() { var m = $('abAcctModal'); if (m) m.classList.remove('open'); }
+
+  function switchToAccount(platform, phone) {
+    var id = acctId(platform, phone);
+    if (currentView === id) return;
+    currentView = id;
+    window._kpLastWins = undefined;
+    window._kpLastLayer2Wins = undefined;
+    saveAccounts();
+    betRecordLoaded = false;
+    if (socket) socket.emit('switchView', { phone: phone, platform: platform });
+    renderAccountList(_acctList);   // refresh button label + row highlight
+  }
+
+  /* ═══ Render Full State ═══ */
+  function renderState(s) {
+    if (!s) return;
+
+    // Balance
+    $('abBalance').textContent = '₹' + (s.balance || 0).toFixed(2);
+
+    // Engine pill
+    var pill = $('abEngine');
+    pill.textContent = (s.engine || 'stopped').toUpperCase();
+    pill.className = 'ab-engine-pill pill-' + (s.engine || 'stopped');
+
+    // Start/Stop buttons
+    if (s.engine === 'stopped') {
+      $('abBtnStart').style.display = '';
+      $('abBtnStop').style.display = 'none';
+      $('abBetStatus').style.display = 'none';
+      /* Driven by the persisted account flag (not the one-shot 'maxLevel'
+         event) so this survives a reconnect / switchView / page reload
+         instead of only flashing at the moment the breaker trips. */
+      if (s.maxLossActive) {
+        /* Show the max level banner when levels are exhausted */
+        $('abMaxLvlBanner').style.display = 'block';
+      } else {
+        $('abMaxLvlBanner').style.display = 'none';
+        _manualBetShown = false;
+      }
+    } else {
+      $('abBtnStart').style.display = 'none';
+      $('abBtnStop').style.display = '';
+      $('abMaxLvlBanner').style.display = 'none';
+      _manualBetShown = false;
+    }
+
+    // Mini stats
+    var bets = (s.wins || 0) + (s.losses || 0);
+    $('abBetsCount').textContent = bets;
+    $('abWL').textContent = (s.wins || 0) + ' / ' + (s.losses || 0);
+    var pnlEl = $('abPnl');
+    pnlEl.textContent = formatPnl(s.pnl || 0);
+    pnlEl.className = 'kp-ms-v ab-stat-val ' + ((s.pnl || 0) >= 0 ? 'vg' : 'vr');
+    
+    // ─ AutoStop check: did we just win?
+    var prevWins = window._kpLastWins !== undefined ? window._kpLastWins : (s.wins || 0);
+    var justWon = (s.wins || 0) > prevWins;
+    window._kpLastWins = s.wins || 0;
+    
+    if (autoStopState.enabled && s.engine !== 'stopped') {
+      var shouldStopByAutoStop = checkAutoStop(s.level || 1, s.pnl || 0, justWon);
+      if (shouldStopByAutoStop) {
+        // Emit stop to server
+        if (socket && currentView) {
+          socket.emit('stop', {});
+        }
+      }
+    }
+    
+    kpLastPnl = s.pnl || 0;
+
+    /* Capture real balance from first state event.
+       If sessionId isn't ready yet (bind still in-flight), park it in
+       kpPendingBalance — the bind callback will send it when it arrives. */
+    if (!kpBalanceSaved && (s.balance || 0) > 0) {
+      kpPendingBalance = s.balance;
+      if (kpSessionId) {
+        kpBalanceSaved = true;
+        fetch('/api/keys/session/balance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: kpSessionId, balance: s.balance })
+        }).catch(function(){});
+      }
+    }
+
+    /* Auto-stop detection: engine just changed from running → stopped without user click */
+    if (s.engine === 'stopped' && kpSessionId && !window._kpStopSent) {
+      window._kpStopSent = true;
+      fetch('/api/keys/session/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: kpSessionId, profit: kpLastPnl })
+      }).catch(function(){});
+    }
+    if (s.engine !== 'stopped') { window._kpStopSent = false; }
+    $('abLvl').textContent = 'LV' + (s.level || 1);
+    $('abHighLvl').textContent = 'LV' + (s.highestLevel || 1);
+    if (s.sessionElapsed) {
+      _sessionStart = Date.now() - s.sessionElapsed;
+      $('abSessionTime').textContent = formatTime(Date.now() - _sessionStart);
+    }
+
+    renderLayer2State(s);
+
+    // Prediction hero
+    if (s.prediction) {
+      var predEl = $('abPred');
+      var pred = s.prediction.displayPred || s.prediction.pred || 'WAIT';
+      predEl.textContent = pred;
+      predEl.className = 'ab-hero-pred pred-' + pred.toLowerCase();
+      $('abPeriod').textContent = s.prediction.forIssue ? '...' + s.prediction.forIssue.slice(-5) : '—';
+      var subsEl = $('abHeroSubs');
+      subsEl.innerHTML = '';
+      var rawLog = s.prediction.log || '';
+      var voteRx = /([A-Za-z0-9_-]+):(BIG|SMALL)/gi;
+      var vm, hasVotes = false;
+      while ((vm = voteRx.exec(rawLog)) !== null) {
+        hasVotes = true;
+        var vc = document.createElement('span');
+        vc.className = 'kp-sub-chip ' + vm[2].toLowerCase();
+        vc.textContent = vm[1] + ':' + vm[2].charAt(0);
+        subsEl.appendChild(vc);
+      }
+      if (!hasVotes) {
+        var fc = document.createElement('span');
+        fc.className = 'kp-sub-chip';
+        fc.textContent = s.prediction.formula || s.formula || '—';
+        subsEl.appendChild(fc);
+      }
+    }
+
+    // Config
+    if (s.gameMode) {
+      currentGameMode = s.gameMode;
+      var mt = $('abModeToggle');
+      if (mt) {
+        mt.querySelectorAll('.kp-mode-btn').forEach(function(b){
+          b.classList.toggle('active', b.getAttribute('data-mode') === s.gameMode);
+        });
+      }
+      // Lock mode toggle while engine is running (can't switch mid-run)
+      var running = s.engine && s.engine !== 'stopped';
+      if (mt) mt.querySelectorAll('.kp-mode-btn').forEach(function(b){ b.disabled = !!running; });
+    }
+    if (s.formulaInfo) {
+      $('abFormulaName').textContent = s.formulaInfo.name || s.formula || '—';
+    }
+    if (s.levels) {
+      if (!editMode) {
+        $('abBaseAmt').value = s.levels[0] || 2;
+        $('abMaxLvl').value = s.levels.length;
+        updateConfigPreview(s.levels);
+        renderLevels(s.levels, s.level || 1);
+        updateLevelSelect(s.levels.length);  // Update AutoStop level dropdown
+      }
+    }
+    if (s.manualFollowerEnabled !== undefined) {
+      manualFollowerEnabledForRender = !!s.manualFollowerEnabled;
+      $('abManualFollowerToggle').checked = !!s.manualFollowerEnabled;
+      $('abManualFollowerLevelWrap').style.display = s.manualFollowerEnabled ? '' : 'none';
+    }
+    if (s.manualFollowerFromLevel !== undefined) {
+      manualFollowerFromLevelForRender = s.manualFollowerFromLevel;
+      populateManualFollowerLevels((s.levels || []).length || 1);
+      $('abManualFollowerLevel').value = s.manualFollowerFromLevel;
+      if (s.levels) renderLevels(s.levels, s.level || 1);
+    }
+    if (s.watchEnabled !== undefined) {
+      $('abWatchToggle').checked = s.watchEnabled;
+    }
+    if (s.watchLossTarget !== undefined) {
+      $('abWatchCount').value = s.watchLossTarget;
+    }
+
+    /* ── Compounding Mode restore from state snapshot ── */
+    if (s.compoundingEnabled !== undefined) {
+      var cToggle = $('abCompoundToggle');
+      var cBody   = $('abCompoundBody');
+      var cWrap   = $('abCompoundingWrap');
+      if (cToggle) cToggle.checked = !!s.compoundingEnabled;
+      if (cBody)   cBody.style.display  = s.compoundingEnabled ? '' : 'none';
+      if (cWrap)   cWrap.classList.toggle('cmpd-active', !!s.compoundingEnabled);
+    }
+    if (s.compoundingBaseFund !== undefined && s.compoundingBaseFund > 0) {
+      /* Keep the input as the original entered amount; the preview below uses
+         the live fund (entered amount + session P&L). */
+      if ($('abCompoundFund')) $('abCompoundFund').value = s.compoundingBaseFund;
+    }
+    if (s.compoundingLevels !== undefined) {
+      if ($('abCompoundLevels')) $('abCompoundLevels').value = s.compoundingLevels;
+    }
+    /* Re-render preview if compounding is on */
+    if (s.compoundingEnabled && s.compoundingFund > 0) {
+      renderCompoundPreview(s.compoundingFund, s.compoundingLevels || 4);
+      var cmpBase = Number(s.compoundingBaseFund || 0);
+      var cmpPnl = Number(s.compoundingSessionPnl || 0);
+      var cmpLive = Number(s.compoundingFund || 0);
+      var pnlText = (cmpPnl >= 0 ? '+' : '−') + '₹' + Math.abs(cmpPnl).toFixed(2);
+      $('abCompoundLive').innerHTML = 'LIVE ALLOCATION: <b>₹' + cmpLive.toFixed(2) + '</b> &nbsp;= Entered ₹' + cmpBase.toFixed(2) + ' + Session P&amp;L ' + pnlText;
+    } else if ($('abCompoundLive')) {
+      $('abCompoundLive').textContent = 'Live allocation: —';
+    }
+
+    // Merged prediction + bet history
+    if (s) {
+      renderMergedHistory(s);
+    }
+
+    // Disable config when running
+    var running = s.engine !== 'stopped';
+    $('abBaseAmt').disabled = running;
+    $('abMaxLvl').disabled = running;
+    $('abWatchToggle').disabled = running;
+    $('abWatchCount').disabled = running;
+    /* Disable compounding controls while engine is running */
+    if ($('abCompoundToggle'))  $('abCompoundToggle').disabled  = running;
+    if ($('abCompoundFund'))    $('abCompoundFund').disabled    = running;
+    if ($('abCompoundLevels'))  $('abCompoundLevels').disabled  = running;
+    if ($('abTargetLevelBet'))  $('abTargetLevelBet').disabled  = running;
+    if ($('abTargetLevelSel'))  $('abTargetLevelSel').disabled  = running;
+    if ($('abLevelJumpToggle')) $('abLevelJumpToggle').disabled = running;
+    var ljRadios = document.querySelectorAll('input[name="abLevelJumpOpt"]');
+    for (var r = 0; r < ljRadios.length; r++) ljRadios[r].disabled = running;
+
+    /* ── Target Level Bet restore from state snapshot ── */
+    if (s.targetLevelBetEnabled !== undefined) {
+      if ($('abTargetLevelBet')) $('abTargetLevelBet').checked = !!s.targetLevelBetEnabled;
+      if ($('abTargetLevelBody')) $('abTargetLevelBody').style.display = s.targetLevelBetEnabled ? '' : 'none';
+      if ($('abTlbWrap')) $('abTlbWrap').classList.toggle('cmpd-active', !!s.targetLevelBetEnabled);
+    }
+    if (s.targetLevel !== undefined && $('abTargetLevelSel')) {
+      $('abTargetLevelSel').value = s.targetLevel;
+    }
+
+    /* ── Level Jump Mode restore from state snapshot ── */
+    if (s.levelJumpEnabled !== undefined) {
+      var ljToggle = $('abLevelJumpToggle');
+      var ljBody   = $('abLevelJumpBody');
+      var ljWrap   = $('abLevelJumpWrap');
+      if (ljToggle) ljToggle.checked = !!s.levelJumpEnabled;
+      if (ljBody)   ljBody.style.display  = s.levelJumpEnabled ? '' : 'none';
+      if (ljWrap)   ljWrap.classList.toggle('cmpd-active', !!s.levelJumpEnabled);
+    }
+    if (s.levelJumpOption !== undefined) {
+      var optRadio = document.querySelector('input[name="abLevelJumpOpt"][value="' + s.levelJumpOption + '"]');
+      if (optRadio) optRadio.checked = true;
+      if (typeof updateLevelJumpCardStyles === 'function') updateLevelJumpCardStyles();
+    }
+    if ($('abLevelJumpStatus')) {
+      if (s.levelJumpEnabled) {
+        var opt = s.levelJumpOption || 'option1';
+        var map = (typeof LJ_PRESETS !== 'undefined' && LJ_PRESETS[opt]) ? LJ_PRESETS[opt].seq : [1, 3, 5, 7, 9, 11, 12, 13, 14, 15];
+        var idx = Math.max(0, (s.levelJumpFundLevel || 1) - 1);
+        var targetPred = idx < map.length ? map[idx] : (map[map.length - 1] + (idx - map.length + 1));
+        $('abLevelJumpStatus').innerHTML = 'Active Fund Level: <b>LV' + (s.levelJumpFundLevel || 1) + '</b> → Target Pred Level: <b>LV' + targetPred + '</b>';
+      } else {
+        $('abLevelJumpStatus').textContent = 'Level Jump: Disabled';
+      }
+    }
+  }
+
+  /* ═══ UI Renderers ═══ */
+  function addLogEntry(entry, target) {
+    var logEl = target || $('abLog');
+    var div = document.createElement('div');
+    div.className = 'kp-log-line ' + (entry.cls || '');
+    div.innerHTML = '<span class="kp-log-time">' + (entry.t || '') + '</span> ' + entry.msg;
+    logEl.prepend(div);
+    while (logEl.children.length > 50) logEl.removeChild(logEl.lastChild);
+  }
+
+  function updateConfigPreview(levels) {
+    var total = levels.reduce(function(a, b) { return a + b; }, 0);
+    $('abConfigPreview').textContent = 'Total risk: ₹' + total + ' | ' + levels.length + ' levels';
+    $('abLevelsRisk').textContent = 'Total risk: ₹' + total + ' across ' + levels.length + ' levels';
+  }
+
+  var editMode = false;
+  var lastKnownLevels = null;
+  var lastKnownLevel = 1;
+  var layer2EditMode = false;
+  var lastKnownLayer2Levels = [];
+  var lastKnownLayer2Level = 1;
+  var manualFollowerEnabledForRender = false;
+  var manualFollowerFromLevelForRender = 3;
+
+  function renderLevels(levels, currentLevel) {
+    if (editMode && document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('level-input')) {
+      return;
+    }
+    lastKnownLevels = levels.slice();
+    lastKnownLevel = currentLevel;
+    var el = $('abLevels');
+    el.innerHTML = '';
+    levels.forEach(function(amt, i) {
+      var lv = i + 1;
+      var chip = document.createElement('span');
+      chip.className = 'ab-level-chip';
+      if (lv === currentLevel) chip.classList.add('current');
+      if (lv < currentLevel) chip.classList.add('passed');
+      if (manualFollowerEnabledForRender && lv >= manualFollowerFromLevelForRender) {
+        chip.classList.add('manual-follow');
+        chip.innerHTML = '<b>M</b> ' + chip.innerHTML;
+      }
+      if (editMode) {
+        chip.innerHTML = 'LV' + lv + ' <input type="number" class="level-input" data-idx="' + i + '" value="' + amt + '" min="1" />';
+      } else {
+        chip.innerHTML = 'LV' + lv + ' ₹' + amt;
+      }
+      el.appendChild(chip);
+    });
+    var oldSave = document.getElementById('abBtnSaveLevels');
+    if (oldSave) oldSave.remove();
+    if (editMode) {
+      var allInputs = el.querySelectorAll('.level-input');
+      allInputs.forEach(function(inp) {
+        inp.addEventListener('input', function() {
+          var vals = [];
+          el.querySelectorAll('.level-input').forEach(function(x) { vals.push(parseInt(x.value) || 1); });
+          updateConfigPreview(vals);
+        });
+      });
+      var btn = document.createElement('button');
+      btn.id = 'abBtnSaveLevels';
+      btn.className = 'ab-btn-save-levels';
+      btn.textContent = '💾 SAVE LEVELS';
+      btn.onclick = function() {
+        var inputs = el.querySelectorAll('.level-input');
+        var custom = [];
+        inputs.forEach(function(inp) { custom.push(parseInt(inp.value) || 1); });
+        if (socket) socket.emit('setLevels', { custom: custom }); // targets server's viewingId
+        editMode = false;
+        var tog = document.getElementById('abEditToggle');
+        if (tog) tog.checked = false;
+      };
+      el.parentElement.appendChild(btn);
+    }
+  }
+
+  var betHistPage = 1;
+  var betHistData = [];
+  var ROWS_PER_PAGE = 10;
+
+  function renderLayer2State(s) {
+    var layer = s && s.layers && s.layers.layer2 ? s.layers.layer2 : null;
+    var panel = $('secLayer2');
+    var addBtn = $('abBtnAddLayer2');
+    if (addBtn) {
+      var hasLayer = !!layer;
+      addBtn.disabled = hasLayer;
+      addBtn.textContent = hasLayer ? 'Layer-2 Added' : '＋ Add Layer-2';
+      addBtn.classList.toggle('is-disabled', hasLayer);
+      addBtn.setAttribute('aria-disabled', hasLayer ? 'true' : 'false');
+    }
+    if (!panel) return;
+    if (!layer) {
+      panel.style.display = 'none';
+      var missingLayerStatus = $('abLayer2BetStatus');
+      if (missingLayerStatus) missingLayerStatus.style.display = 'none';
+      return;
+    }
+    lastKnownLayer2Levels = Array.isArray(layer.levels) ? layer.levels.slice() : [];
+    lastKnownLayer2Level = layer.level || 1;
+    if ($('abLayer2BaseAmt')) $('abLayer2BaseAmt').value = lastKnownLayer2Levels[0] || 2;
+    if ($('abLayer2MaxLvl')) $('abLayer2MaxLvl').value = lastKnownLayer2Levels.length || 10;
+    panel.style.display = '';
+    var engine = layer.engine || 'stopped';
+    var pill = $('abLayer2Engine');
+    if (pill) {
+      pill.textContent = engine.toUpperCase();
+      pill.className = 'ab-engine-pill pill-' + engine;
+    }
+    $('abLayer2Bets').textContent = (layer.wins || 0) + (layer.losses || 0);
+    $('abLayer2WL').textContent = (layer.wins || 0) + ' / ' + (layer.losses || 0);
+    $('abLayer2Pnl').textContent = formatPnl(layer.pnl || 0);
+    $('abLayer2Pnl').className = 'kp-ms-v ab-stat-val ' + ((layer.pnl || 0) >= 0 ? 'vg' : 'vr');
+    $('abLayer2Lvl').textContent = 'LV' + (layer.level || 1);
+
+    // ─ Layer-2 AutoStop check: did Layer-2 just win?
+    var prevLayer2Wins = window._kpLastLayer2Wins !== undefined ? window._kpLastLayer2Wins : (layer.wins || 0);
+    var layer2JustWon = (layer.wins || 0) > prevLayer2Wins;
+    window._kpLastLayer2Wins = layer.wins || 0;
+
+    if (layer2AutoStopState.enabled && engine !== 'stopped') {
+      var shouldStopLayer2 = checkLayer2AutoStop(layer.level || 1, layer.pnl || 0, layer2JustWon);
+      if (shouldStopLayer2) {
+        var acct = accounts.find(function(a){ return acctId(a.platform, a.phone) === currentView; }) || null;
+        if (socket && acct) {
+          socket.emit('stopLayer', { layer: 'layer2', platform: acct.platform, phone: acct.phone });
+        }
+      }
+    }
+
+    $('abLayer2Pred').textContent = (layer.prediction && (layer.prediction.displayPred || layer.prediction.pred)) ? (layer.prediction.displayPred || layer.prediction.pred) : 'WAIT';
+    $('abLayer2Pred').className = 'ab-hero-pred pred-' + ((layer.prediction && (layer.prediction.displayPred || layer.prediction.pred)) ? (layer.prediction.displayPred || layer.prediction.pred).toLowerCase() : 'wait');
+    $('abBtnLayer2Start').style.display = (engine === 'stopped') ? '' : 'none';
+    $('abBtnLayer2Stop').style.display = (engine === 'stopped') ? 'none' : '';
+    var removeBtn = $('abBtnLayer2Remove');
+    if (removeBtn) {
+      removeBtn.disabled = engine !== 'stopped';
+      removeBtn.title = engine === 'stopped' ? 'Remove Layer-2' : 'Stop Layer-2 before removing it';
+    }
+    if (engine !== 'stopped' && layer.pending) {
+      renderLayer2BetStatus({ icon: '📊', label: 'BET ACTIVE', detail: (layer.pending.displayPred || layer.pending.pred) + ' ₹' + layer.pending.amount + ' on ...' + String(layer.pending.issue).slice(-5), cls: 'placed', timer: '', bar: '50' });
+    } else if (engine === 'stopped') {
+      var stoppedLayerStatus = $('abLayer2BetStatus');
+      if (stoppedLayerStatus) stoppedLayerStatus.style.display = 'none';
+    }
+    if (layer.formula) $('abLayer2FormulaName').textContent = layer.formula;
+    renderLayer2Levels(layer.levels || [], layer.level || 1);
+    if (layer.levels && layer.levels.length) {
+      updateLayer2LevelSelect(layer.levels.length);
+    }
+  }
+
+  function renderLayer2BetStatus(d) {
+    var el = $('abLayer2BetStatus');
+    if (!el) return;
+    el.style.display = '';
+    el.className = 'ab-bet-status s-' + (d.cls || 'idle');
+    $('abLayer2BsIcon').textContent = d.icon || '⏳';
+    $('abLayer2BsLabel').textContent = 'LAYER-2 · ' + (d.label || '');
+    $('abLayer2BsDetail').textContent = d.detail || '';
+    $('abLayer2BsTimer').textContent = d.timer || '';
+    $('abLayer2BsBar').style.width = (d.bar || '0') + '%';
+  }
+
+  function renderLayer2Levels(levels, currentLevel) {
+    if (layer2EditMode && document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('level-input')) {
+      return;
+    }
+    var el = $('abLayer2Levels');
+    if (!el || !levels.length) return;
+    el.innerHTML = '';
+    levels.forEach(function(amount, index) {
+      var lv = index + 1;
+      var chip = document.createElement('span');
+      chip.className = 'ab-level-chip';
+      if (lv === (currentLevel || 1)) chip.classList.add('current');
+      if (lv < (currentLevel || 1)) chip.classList.add('passed');
+      if (layer2EditMode) {
+        chip.innerHTML = 'LV' + lv + ' <input class="ab-layer2-level level-input" type="number" min="1" max="100000" value="' + amount + '" data-level="' + index + '" style="width:64px;padding:3px 5px;" />';
+      } else {
+        chip.innerHTML = 'LV' + lv + ' ₹' + amount;
+      }
+      el.appendChild(chip);
+    });
+  }
+
+  function renderBetHistory(history) {
+    betHistData = history || [];
+    betHistPage = 1;
+    renderBetHistPage();
+  }
+
+  function visiblePrediction(value, formula) {
+    if ((formula || '') === 'n1_abab_zigzag_color') {
+      if (value === 'BIG' || value === 'Big') return 'Green';
+      if (value === 'SMALL' || value === 'Small') return 'Red';
+    }
+    return value || '';
+  }
+
+  function formatHistoryAmount(value) {
+    var num = Number(value || 0);
+    if (!isFinite(num) || num <= 0) return '—';
+    return '₹' + num.toFixed(2);
+  }
+
+  function mergeHistoryRows(state) {
+    var predHistory = Array.isArray(state && state.predHistory) ? state.predHistory : [];
+    var betHistory = Array.isArray(state && state.betHistory) ? state.betHistory : [];
+    var layer2History = state && state.layers && state.layers.layer2 && Array.isArray(state.layers.layer2.betHistory)
+      ? state.layers.layer2.betHistory
+      : [];
+    var rowsByIssue = {};
+
+    function ensureKey(issue) {
+      var key = String(issue || '').trim();
+      if (!key) key = 'UNSPECIFIED-' + Object.keys(rowsByIssue).length;
+      if (!rowsByIssue[key]) rowsByIssue[key] = { issue: issue || '—', pred: null, predFormula: null, predResult: null, predCorrect: null, mainBet: null, layer2Bet: null };
+      return key;
+    }
+
+    predHistory.forEach(function(p) {
+      var key = ensureKey(p && (p.forIssue || p.issue));
+      rowsByIssue[key].pred = p.displayPred || p.pred || null;
+      rowsByIssue[key].predFormula = p.formula || null;
+      rowsByIssue[key].predResult = (p.result !== undefined && p.result !== null) ? p.result : (p.actualResult || p.actual || p.predResult || null);
+      rowsByIssue[key].predCorrect = p.correct;
+      rowsByIssue[key].issue = p.forIssue || p.issue || rowsByIssue[key].issue;
+    });
+
+    betHistory.forEach(function(b) {
+      var key = ensureKey(b && (b.issue || b.forIssue));
+      rowsByIssue[key].mainBet = b;
+    });
+
+    layer2History.forEach(function(b) {
+      var key = ensureKey(b && (b.issue || b.forIssue));
+      rowsByIssue[key].layer2Bet = b;
+    });
+
+    return Object.keys(rowsByIssue).map(function(key) {
+      var row = rowsByIssue[key];
+      var mainBet = row.mainBet || null;
+      var layer2Bet = row.layer2Bet || null;
+      var mainPrediction = mainBet && (mainBet.displayPred || mainBet.pred) ? visiblePrediction(mainBet.displayPred || mainBet.pred, mainBet.formula) : (row.pred ? visiblePrediction(row.pred, row.predFormula || '') : '—');
+      var layer1Prediction = mainPrediction;
+      var layer2Prediction = layer2Bet && (layer2Bet.displayPred || layer2Bet.pred) ? visiblePrediction(layer2Bet.displayPred || layer2Bet.pred, layer2Bet.formula) : '—';
+      function layerBetValues(bet) {
+        if (!bet) return { hasBet: false, won: null, result: '—', amount: '—', profit: '—', profitClass: '' };
+        var hasPnl = bet.pnl !== undefined && bet.pnl !== null && bet.pnl !== '';
+        var profit = hasPnl ? Number(bet.pnl) : 0;
+        var won = typeof bet.won === 'boolean' ? bet.won : (hasPnl ? profit >= 0 : null);
+        return {
+          hasBet: true,
+          won: won,
+          result: won === true ? '✓ WIN' : (won === false ? '✕ LOSS' : 'PENDING'),
+          amount: formatHistoryAmount(bet.amount),
+          profit: hasPnl ? formatPnl(profit) : '—',
+          profitClass: hasPnl ? (profit >= 0 ? 'vg' : 'vr') : ''
+        };
+      }
+
+      var layer1 = layerBetValues(mainBet);
+      var layer2 = layerBetValues(layer2Bet);
+      return {
+        issue: row.issue,
+        predResult: row.predResult,
+        layer1Prediction: layer1Prediction,
+        predictionWon: row.predCorrect === true ? true : (row.predCorrect === false ? false : null),
+        layer1: layer1,
+        layer2Prediction: layer2Prediction,
+        layer2: layer2,
+        mainWon: layer1.won,
+        layer2Won: layer2.won,
+      };
+    }).sort(function(a, b) {
+      var aIssue = String(a.issue || '').replace(/[^0-9]/g, '');
+      var bIssue = String(b.issue || '').replace(/[^0-9]/g, '');
+      return Number(bIssue || 0) - Number(aIssue || 0);
+    });
+  }
+
+  var mergedHistoryRows = [];
+
+  function renderMergedHistory(state) {
+    if (state) mergedHistoryRows = mergeHistoryRows(state);
+    var rows = mergedHistoryRows;
+    var betsOnly = $('abPredHistBetsOnly') && $('abPredHistBetsOnly').checked;
+    if (betsOnly) {
+      rows = rows.filter(function(row) { return row.layer1.hasBet || row.layer2.hasBet; });
+    }
+    var tbody = $('abPredHistBody');
+    var empty = $('abPredHistEmpty');
+    var pager = $('abPredHistPager');
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = '';
+      empty.style.display = '';
+      pager.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    var totalPages = Math.ceil(rows.length / ROWS_PER_PAGE);
+    if (predHistPage > totalPages) predHistPage = totalPages;
+    if (predHistPage < 1) predHistPage = 1;
+    var start = (predHistPage - 1) * ROWS_PER_PAGE;
+    var page = rows.slice(start, start + ROWS_PER_PAGE);
+    tbody.innerHTML = '';
+    page.forEach(function(r, i) {
+      var tr = document.createElement('tr');
+      var l1Class = '';
+      if (r.mainWon === true) l1Class = 'vg';
+      else if (r.mainWon === false) l1Class = 'vr';
+      var l2Class = '';
+      if (r.layer2Won === true) l2Class = 'vg';
+      else if (r.layer2Won === false) l2Class = 'vr';
+      tr.className = (r.mainWon === true || r.layer2Won === true) ? 'row-win' : ((r.mainWon === false || r.layer2Won === false) ? 'row-loss' : '');
+      var predictionClass = r.predictionWon === true ? 'vg' : (r.predictionWon === false ? 'vr' : '');
+      var predictionResult = r.predictionWon === true ? '✓ WIN' : (r.predictionWon === false ? '✕ LOSS' : '—');
+      var actualResult = (r.predResult !== undefined && r.predResult !== null) ? r.predResult : ((r.mainWon === true || r.layer2Won === true) ? '✓' : ((r.mainWon === false || r.layer2Won === false) ? '✕' : '—'));
+      if (actualResult === true) actualResult = '✓';
+      if (actualResult === false) actualResult = '✕';
+      if (actualResult === 'WIN') actualResult = '✓';
+      if (actualResult === 'LOSS') actualResult = '✕';
+      actualResult = String(actualResult).toUpperCase();
+      tr.innerHTML = '<td>...' + String(r.issue || '').slice(-3) + '</td>'
+        + '<td>' + actualResult + '</td>'
+        + '<td>' + (r.layer1Prediction || '—') + '</td>'
+        + '<td class="' + predictionClass + '">' + predictionResult + '</td>'
+        + '<td class="' + l1Class + '">' + r.layer1.result + '</td>'
+        + '<td>' + r.layer1.amount + '</td>'
+        + '<td class="' + r.layer1.profitClass + '">' + r.layer1.profit + '</td>'
+        + '<td>' + (r.layer2Prediction || '—') + '</td>'
+        + '<td class="' + l2Class + '">' + r.layer2.result + '</td>'
+        + '<td>' + r.layer2.amount + '</td>'
+        + '<td class="' + r.layer2.profitClass + '">' + r.layer2.profit + '</td>';
+      tbody.appendChild(tr);
+    });
+    if (totalPages > 1) {
+      pager.style.display = '';
+      $('abPredHistPageInfo').textContent = predHistPage + ' / ' + totalPages;
+    } else {
+      pager.style.display = 'none';
+    }
+  }
+
+  function renderBetHistPage() {
+    var tbody = $('abHistoryBody');
+    var empty = $('abHistoryEmpty');
+    var pager = $('abBetHistPager');
+    if (!betHistData || betHistData.length === 0) {
+      tbody.innerHTML = '';
+      empty.style.display = '';
+      pager.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    var totalPages = Math.ceil(betHistData.length / ROWS_PER_PAGE);
+    if (betHistPage > totalPages) betHistPage = totalPages;
+    if (betHistPage < 1) betHistPage = 1;
+    var start = (betHistPage - 1) * ROWS_PER_PAGE;
+    var page = betHistData.slice(start, start + ROWS_PER_PAGE);
+    tbody.innerHTML = '';
+    page.forEach(function(b, i) {
+      var tr = document.createElement('tr');
+      tr.className = b.won ? 'row-win' : 'row-loss';
+      tr.innerHTML = '<td>' + (start + i + 1) + '</td>'
+        + '<td>...' + (b.issue || '').slice(-5) + '</td>'
+        + '<td>' + visiblePrediction(b.displayPred || b.pred, b.formula) + '</td>'
+        + '<td>LV' + (b.level || 1) + '</td>'
+        + '<td>₹' + (b.amount || 0) + '</td>'
+        + '<td>' + (b.won ? '✅' : '❌') + '</td>'
+        + '<td class="' + (b.pnl >= 0 ? 'vg' : 'vr') + '">' + formatPnl(b.pnl || 0) + '</td>';
+      tbody.appendChild(tr);
+    });
+    if (totalPages > 1) {
+      pager.style.display = '';
+      $('abBetHistPageInfo').textContent = betHistPage + ' / ' + totalPages;
+    } else {
+      pager.style.display = 'none';
+    }
+  }
+
+  var predHistPage = 1;
+  var predHistData = [];
+
+  function renderPredHistory(history) {
+    predHistData = history || [];
+    var totalPages = Math.ceil(predHistData.length / ROWS_PER_PAGE);
+    if (predHistPage > totalPages) predHistPage = totalPages;
+    if (predHistPage < 1) predHistPage = 1;
+    renderPredHistPage();
+  }
+
+  function renderPredHistPage() {
+    var tbody = $('abPredHistBody');
+    var empty = $('abPredHistEmpty');
+    var pager = $('abPredHistPager');
+    if (!predHistData || predHistData.length === 0) {
+      tbody.innerHTML = '';
+      empty.style.display = '';
+      pager.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    var totalPages = Math.ceil(predHistData.length / ROWS_PER_PAGE);
+    if (predHistPage > totalPages) predHistPage = totalPages;
+    if (predHistPage < 1) predHistPage = 1;
+    var start = (predHistPage - 1) * ROWS_PER_PAGE;
+    var page = predHistData.slice(start, start + ROWS_PER_PAGE);
+    tbody.innerHTML = '';
+    page.forEach(function(p, i) {
+      var tr = document.createElement('tr');
+      var resText = p.result || '⏳';
+      var checkText = p.correct === true ? '✅' : (p.correct === false ? '❌' : '—');
+      tr.className = p.correct === true ? 'row-win' : (p.correct === false ? 'row-loss' : '');
+      tr.innerHTML = '<td>' + (start + i + 1) + '</td>'
+        + '<td>...' + (p.forIssue || '').slice(-5) + '</td>'
+        + '<td>' + (p.formula || '—') + '</td>'
+        + '<td class="' + (p.pred === 'BIG' ? 'vg' : 'vr') + '">' + visiblePrediction(p.displayPred || p.pred, p.formula) + '</td>'
+        + '<td class="' + (resText === 'BIG' ? 'vg' : (resText === 'SMALL' ? 'vr' : '')) + '">' + resText + '</td>'
+        + '<td>' + checkText + '</td>';
+      tbody.appendChild(tr);
+    });
+    if (totalPages > 1) {
+      pager.style.display = '';
+      $('abPredHistPageInfo').textContent = predHistPage + ' / ' + totalPages;
+    } else {
+      pager.style.display = 'none';
+    }
+  }
+
+  function renderFormulaGrid(currentFormula, targetLayer) {
+    var grid = $('abFormulaGrid');
+    grid.innerHTML = '';
+    var keys = Object.keys(FORMULAS).filter(function(k){ return (FORMULAS[k].mode || 'WinGo_30S') === currentGameMode; });
+    if (keys.length === 0) {
+      grid.innerHTML = '<div class="kp-empty" style="padding:24px;text-align:center;color:#888">No formulas for this mode yet.</div>';
+      return;
+    }
+    keys.forEach(function(key) {
+      var f = FORMULAS[key];
+      var card = document.createElement('div');
+      card.className = 'ab-formula-card' + (key === currentFormula ? ' selected' : '');
+      card.innerHTML = '<div class="ab-fc-name">' + f.name + '</div>'
+        + '<div class="ab-fc-desc">' + f.desc + '</div>'
+        + '<div class="ab-fc-tags">' + f.tags.map(function(t) { return '<span class="ab-fc-tag">' + t + '</span>'; }).join('') + '</div>';
+      card.onclick = function() {
+        socket.emit(targetLayer === 'layer2' ? 'setLayerFormula' : 'setFormula', { formula: key, layer: targetLayer || 'main' }); // targets server's viewingId
+        $('abFormulaPopup').style.display = 'none';
+      };
+      grid.appendChild(card);
+    });
+  }
+
+  function renderBetRecord(d) {
+    var list = $('abBetRecordList');
+    var result = d.result;
+    if (!result || result.code !== 0 || !result.data) {
+      list.innerHTML = '<div class="kp-empty">No records found</div>';
+      return;
+    }
+    var items = result.data.list || result.data || [];
+    if (!Array.isArray(items) || items.length === 0) {
+      list.innerHTML = '<div class="kp-empty">No records found</div>';
+      return;
+    }
+    list.innerHTML = '';
+    items.forEach(function(r) {
+      var div = document.createElement('div');
+      div.className = 'bet-item';
+      var amt = parseFloat(r.amount || r.betAmount || r.realAmount || 0);
+      var winLose = parseFloat(r.winLoseAmount || r.winAmount || 0);
+      var isWin = winLose > 0;
+      var content = r.betContent || r.playType || '';
+      var bs = '';
+      if (content.indexOf('_Small') >= 0) bs = 'small';
+      else if (content.indexOf('_Big') >= 0) bs = 'big';
+      else bs = 'num';
+      var bsLabel = bs.charAt(0).toUpperCase() + bs.slice(1);
+      var betTime = r.betTime ? new Date(r.betTime).toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',hour12:false}) : '';
+      div.innerHTML = '<span class="bet-tag ' + bs + '">' + bsLabel + '</span>'
+        + '<div class="bet-mid">'
+        + '<div class="bet-period">...' + String(r.issueNumber || '').slice(-5) + '</div>'
+        + (betTime ? '<div class="bet-time">' + betTime + '</div>' : '')
+        + '</div>'
+        + '<div class="bet-right">'
+        + '<div class="bet-status ' + (isWin ? 'ok' : 'fail') + '">' + (isWin ? 'WIN' : 'LOSS') + '</div>'
+        + '<div class="bet-amt ' + (isWin ? 'win' : 'loss') + '">' + (isWin ? '+₹' + winLose.toFixed(2) : '-₹' + amt.toFixed(2)) + '</div>'
+        + '</div>';
+      list.appendChild(div);
+    });
+    var totalPage = result.data.totalPage || 1;
+    $('abBetRecordPageInfo').textContent = d.page + ' / ' + totalPage;
+  }
+
+  /* ═══ Session Timer ═══ */
+  setInterval(function() {
+    if (_sessionStart) {
+      $('abSessionTime').textContent = formatTime(Date.now() - _sessionStart);
+    }
+  }, 1000);
+
+  /* ═══ Check Saved Accounts ═══ */
+  if (accounts.length > 0) {
+    showDashboard();
+  } else {
+    showLogin();
+  }
+
+  /* ═══ CAPTCHA ═══ */
+  captchaBtn.addEventListener('click', handleCaptcha);
+
+  async function handleCaptcha() {
+    await platformsReady;
+    var phone = phoneEl.value.trim().replace(/[^0-9]/g,'');
+    if (!phone) { status('❌ Enter your phone number first', false); return; }
+
+    /* Check key→phone→platform binding before fetching captcha */
+    if (kpKey) {
+      try {
+        var vr = await fetch('/api/keys/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: kpKey, phone: phone, platform: selectedPlatform, deviceId: getBrowserId() })
+        });
+        var vd = await vr.json();
+        if (!vd.ok) {
+          status('❌ ' + (vd.msg || 'Key validation failed'), false);
+          return;
+        }
+      } catch(e) {
+        status('❌ Key check failed: ' + e.message, false);
+        return;
+      }
+    }
+
+    captchaBtn.disabled = true;
+    captchaBtn.textContent = 'Loading...';
+    try {
+      var res = await fetch('/api/platform/' + selectedPlatform + '/captcha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      var data = await res.json();
+      if (data && data.code === 0 && data.data) {
+        captchaId = data.data.captchaId;
+        $('abCaptchaBg').src = data.data.backgroundImage;
+        $('abCaptchaPiece').src = data.data.sliderImage;
+        /* Size the on-screen box to match this platform's captcha geometry,
+           so the pixel coordinates dragged on screen are the same ones
+           reported in the login track payload — see setupSlider(). */
+        var geo = PLATFORM_META[selectedPlatform].captcha;
+        var box = $('abCaptchaBox');
+        box.style.width  = geo.bgW + 'px';
+        box.style.height = geo.bgH + 'px';
+        captchaSec.style.display = 'block';
+        sliderX = 0; trackData = [];
+        $('abCaptchaPiece').style.left = '0px';
+        $('abSliderThumb').style.left = '3px';
+        setupSlider(geo);
+        status('✅ Captcha loaded — drag the slider', true);
+      } else {
+        status(data?.msg || 'Captcha failed', false);
+      }
+    } catch(e) {
+      status('❌ ' + e.message, false);
+    } finally {
+      captchaBtn.disabled = false;
+      captchaBtn.textContent = '🔑 GET CAPTCHA';
+    }
+  }
+
+  /* ═══ SLIDER ═══ */
+  function setupSlider(geo) {
+    var thumb = $('abSliderThumb');
+    var piece = $('abCaptchaPiece');
+    var track = $('abSliderTrack');
+    /* Drag range matches the platform's own background width, so the x
+       we report in the track payload is honest for whichever site this is. */
+    var trackWidth = geo.bgW - 36;
+
+    function onStart(e) {
+      dragging = true;
+      trackData = [];
+      trackStart = new Date().toISOString();
+      e.preventDefault();
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      e.preventDefault();
+      var rect = track.getBoundingClientRect();
+      var cx = e.touches ? e.touches[0].clientX : e.clientX;
+      var x = Math.max(0, Math.min(cx - rect.left - 18, trackWidth));
+      sliderX = x;
+      thumb.style.left = x + 'px';
+      piece.style.left = x + 'px';
+      trackData.push({ x: Math.round(x), y: Math.round((e.touches ? e.touches[0].clientY : e.clientY) - rect.top), t: trackData.length + 1 });
+    }
+    function onEnd() { dragging = false; }
+
+    var nt = thumb.cloneNode(true);
+    thumb.parentNode.replaceChild(nt, thumb);
+    nt.addEventListener('mousedown', onStart);
+    nt.addEventListener('touchstart', onStart, { passive: false });
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchend', onEnd);
+  }
+
+  /* ═══ LOGIN (adds account) ═══ */
+  loginBtn.addEventListener('click', handleLogin);
+  pwdEl.addEventListener('keydown', function(e){ if(e.key==='Enter') handleLogin(); });
+
+  async function handleLogin() {
+    await platformsReady;
+    var platform = selectedPlatform;
+    var phone = phoneEl.value.trim();
+    var pwd   = pwdEl.value.trim();
+    if (!phone || !pwd) { status('❌ Enter phone & password', false); return; }
+    if (!captchaId) { status('❌ Get captcha first', false); return; }
+    if (trackData.length < 3) { status('❌ Drag the slider', false); return; }
+
+    // Check if already added (same phone on a DIFFERENT platform is a separate account)
+    if (accounts.some(function(a) { return a.phone === phone && a.platform === platform; })) {
+      status('⚠️ Account already added', false);
+      return;
+    }
+
+    status('⏳ Verifying key...', true);
+    loginBtn.disabled = true;
+
+    try {
+      /* ── Hard server-side gate: key+phone+platform binding check ──
+         Always read kp_key fresh from sessionStorage — the JS variable
+         kpKey may be stale if the gate ran after the IIFE initialized. */
+      var activeKey = sessionStorage.getItem('kp_key') || kpKey;
+      var cleaned0  = phone.replace(/[^0-9]/g, '');
+      if (!activeKey) {
+        status('❌ No license key found — please refresh and enter your key', false);
+        loginBtn.disabled = false;
+        return;
+      }
+      var kc = await fetch('/api/keys/login-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: activeKey, phone: cleaned0, platform: platform })
+      });
+      var kd = await kc.json();
+      if (!kd.ok) {
+        status('❌ ' + (kd.msg || 'Access denied'), false);
+        loginBtn.disabled = false;
+        return;
+      }
+
+      status('⏳ Logging in...', true);
+      var cleaned  = phone.replace(/[^0-9]/g, '');
+      var username = cleaned.length <= 10 ? '91' + cleaned : cleaned;
+
+      /* Build the login body in this platform's own field naming (see
+         platforms.js server-side — the map here comes straight from
+         GET /api/platforms, so a new platform needs no client change). */
+      var lf = PLATFORM_META[platform].login;
+      var loginPayload = {};
+      loginPayload[lf.user] = username;
+      loginPayload[lf.pass] = pwd;
+      loginPayload[lf.type] = lf.typeValue;
+      loginPayload[lf.pack] = '';
+      loginPayload.captchaId = captchaId;
+      loginPayload.track = { backgroundImageWidth: PLATFORM_META[platform].captcha.bgW, backgroundImageHeight: PLATFORM_META[platform].captcha.bgH, sliderImageWidth: PLATFORM_META[platform].captcha.slW, sliderImageHeight: PLATFORM_META[platform].captcha.slH, startTime: trackStart, endTime: new Date().toISOString(), tracks: trackData };
+      loginPayload.deviceId = deviceId;
+      if (platform === 'goa')  loginPayload.phonetype = 0;
+      if (platform === 'dhan') loginPayload.browserId = getBrowserId();
+
+      var res = await fetch('/api/platform/' + platform + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginPayload)
+      });
+      var data = await res.json();
+
+      if (data && data.code === 0 && data.data) {
+        var d = data.data;
+        var lt = '';
+        if (d.lotteryLoginUrl) {
+          var m = d.lotteryLoginUrl.match(/Token=([^&]+)/);
+          if (m) lt = decodeURIComponent(m[1]);
+        }
+        if (!lt && d.token) lt = d.token;
+
+        var acctEntry = {
+          phone: phone,
+          platform: platform,
+          lotteryToken: lt,
+          webapiToken: d.token || '',
+          pwd: pwd,
+          fresh: true
+        };
+
+        /* Regular key users: enforce single account — replace any existing */
+        if (!kpIsDefault) accounts = [];
+        accounts.push(acctEntry);
+        currentView = acctId(platform, phone);
+        saveAccounts();
+
+        /* Bind key → phone+platform and create session row (balance captured later from state event) */
+        var activeKey = sessionStorage.getItem('kp_key') || kpKey;
+        if (activeKey) {
+          kpBalanceSaved = false;
+          fetch('/api/keys/bind', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: activeKey, phone: phone, platform: platform })
+          })
+          .then(function(r){ return r.json(); })
+          .then(function(bd){
+            if (bd.ok && bd.sessionId) {
+              kpSessionId = bd.sessionId;
+              sessionStorage.setItem('kp_session_id', kpSessionId);
+              window._kpStopSent = false;
+
+              /* Update kpKey from sessionStorage in case it was stale */
+              kpKey = sessionStorage.getItem('kp_key') || kpKey;
+
+              /* Lock phone + platform field from now on for this key */
+              if (!kpIsDefault && !kpBoundPhone) {
+                kpBoundPhone = phone;
+                sessionStorage.setItem('kp_bound_phone', phone);
+                sessionStorage.setItem('kp_bound_platform', platform);
+                lockPhoneField();
+                renderPlatformRow();
+              }
+
+              /* State event may have already arrived with balance — flush it now */
+              if (!kpBalanceSaved && kpPendingBalance > 0) {
+                kpBalanceSaved = true;
+                fetch('/api/keys/session/balance', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ sessionId: kpSessionId, balance: kpPendingBalance })
+                }).catch(function(){});
+              }
+            }
+          })
+          .catch(function(){});
+        }
+
+        status('✅ Login success!', true);
+        toast('Logged In', 'Welcome ' + phone, 'info');
+
+        // Reset login form
+        phoneEl.value = '';
+        pwdEl.value = '';
+        captchaSec.style.display = 'none';
+        captchaId = null;
+
+        setTimeout(function(){ showDashboard(); }, 500);
+      } else {
+        status('❌ ' + (data?.msg || 'Login failed'), false);
+        handleCaptcha();
+      }
+    } catch(e) {
+      status('❌ ' + e.message, false);
+    } finally {
+      loginBtn.disabled = false;
+    }
+  }
+
+  /* ═══ Dashboard Event Listeners ═══ */
+
+  // Account list popup (open / close / overlay-click)
+  var _acctListBtn = $('abBtnAcctList');
+  if (_acctListBtn) _acctListBtn.addEventListener('click', openAcctModal);
+  var _acctModalClose = $('abAcctModalClose');
+  if (_acctModalClose) _acctModalClose.addEventListener('click', closeAcctModal);
+  var _acctModal = $('abAcctModal');
+  if (_acctModal) _acctModal.addEventListener('click', function(e) { if (e.target === _acctModal) closeAcctModal(); });
+
+  // Add Account
+  var _addAcctBtn = $('abBtnAddAcct');
+  if (_addAcctBtn) {
+    _addAcctBtn.addEventListener('click', function() {
+      if (sessionStorage.getItem('kp_is_default') !== '1') return;
+      showLogin();
+    });
+  }
+
+  // Back to Dashboard
+  $('abBtnBackToDash').addEventListener('click', function() {
+    showDashboard();
+  });
+
+  // Logout (current account only)
+  $('abBtnLogout').addEventListener('click', function(){
+    if (!currentView) return;
+    if (socket) socket.emit('logout', {}); // targets server's viewingId
+    accounts = accounts.filter(function(a) { return acctId(a.platform, a.phone) !== currentView; });
+
+    if (kpIsDefault && accounts.length > 0) {
+      /* Super user: switch to next available account */
+      currentView = acctId(accounts[0].platform, accounts[0].phone);
+      saveAccounts();
+      socket.emit('switchView', { phone: accounts[0].phone, platform: accounts[0].platform });
+    } else {
+      /* Regular user (or last account): back to login, key stays valid */
+      currentView = null;
+      accounts = [];
+      saveAccounts();
+      kpSessionId = '';
+      kpBalanceSaved = false;
+      sessionStorage.removeItem('kp_session_id');
+      if (socket) { socket.disconnect(); socket = null; }
+      showLogin();
+    }
+    toast('Logged Out', 'Account removed', 'info');
+  });
+
+  // Start
+  $('abBtnStart').addEventListener('click', function(){
+    if (!socket || !currentView) return;
+    window._kpStopSent = false;
+    socket.emit('start', { sessionId: kpSessionId || null }); // targets server's viewingId
+  });
+
+  function addLayer2() {
+    var button = $('abBtnAddLayer2');
+    if (!socket || !socket.connected) {
+      toast('Not connected', 'Reconnect to the server before adding Layer-2.', 'error');
+      return;
+    }
+    if (!currentView) {
+      toast('No account selected', 'Open an account before adding Layer-2.', 'warn');
+      return;
+    }
+    if (button && button.disabled) return;
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Adding Layer-2...';
+    }
+    /* Do not rebuild the account from the browser cache. The server socket
+       already owns the current account view and is the authoritative target. */
+    socket.emit('addLayer2', {}, function(result) {
+      if (result && result.ok) return;
+      if (button && !(result && result.exists)) {
+        button.disabled = false;
+        button.textContent = '＋ Add Layer-2';
+      }
+      toast('Layer-2 unavailable', (result && result.msg) || 'The layer could not be created.', 'error');
+    });
+  }
+  $('abBtnAddLayer2').addEventListener('click', addLayer2);
+
+  $('abBtnLayer2Start').addEventListener('click', function(){
+    if (!socket || !currentView) return;
+    socket.emit('startLayer', { layer: 'layer2', platform: accounts.find(function(a){ return acctId(a.platform, a.phone) === currentView; })?.platform, phone: accounts.find(function(a){ return acctId(a.platform, a.phone) === currentView; })?.phone });
+  });
+
+  $('abBtnLayer2Stop').addEventListener('click', function(){
+    if (!socket || !currentView) return;
+    socket.emit('stopLayer', { layer: 'layer2', platform: accounts.find(function(a){ return acctId(a.platform, a.phone) === currentView; })?.platform, phone: accounts.find(function(a){ return acctId(a.platform, a.phone) === currentView; })?.phone });
+  });
+
+  $('abBtnLayer2Reset').addEventListener('click', function(){
+    if (!socket || !currentView) return;
+    var acct = accounts.find(function(a){ return acctId(a.platform, a.phone) === currentView; }) || null;
+    if (!acct) return;
+    socket.emit('resetStats', { phone: acct.phone, platform: acct.platform, layer: 'layer2' });
+  });
+
+  $('abBtnLayer2Remove').addEventListener('click', function(){
+    if (!socket || !currentView) return;
+    var layer = latestState && latestState.layers && latestState.layers.layer2;
+    if (layer && layer.engine && layer.engine !== 'stopped') {
+      toast('Stop Layer-2 first', 'Layer-2 must be stopped before it can be removed.', 'warn');
+      return;
+    }
+    if (!confirm('Remove Layer-2 and its Layer-2 history from this account?')) return;
+    socket.emit('removeLayer2', {}, function(result) {
+      if (!result || !result.ok) {
+        toast('Layer-2 not removed', (result && result.msg) || 'Please try again.', 'error');
+      } else {
+        resetLayer2AutoStop();
+      }
+    });
+  });
+
+  function buildLayer2Levels(baseAmt, maxLevel) {
+    var base = Math.max(1, parseInt(baseAmt, 10) || 2);
+    var max = Math.max(1, Math.min(15, parseInt(maxLevel, 10) || 10));
+    var out = [];
+    for (var i = 0; i < max; i++) {
+      out.push(i === 0 ? base : Math.ceil((out[i - 1] || base) * 2.15));
+    }
+    return out;
+  }
+
+  var layer2ConfigTimer = null;
+  function onLayer2ConfigChange() {
+    clearTimeout(layer2ConfigTimer);
+    layer2ConfigTimer = setTimeout(function() {
+      if (!socket || !currentView) return;
+      var baseAmt = parseInt($('abLayer2BaseAmt').value, 10) || 2;
+      var maxLevel = parseInt($('abLayer2MaxLvl').value, 10) || 10;
+      var levels = buildLayer2Levels(baseAmt, maxLevel);
+      lastKnownLayer2Levels = levels.slice();
+      renderLayer2Levels(levels, lastKnownLayer2Level || 1);
+      updateLayer2LevelSelect(maxLevel);
+      socket.emit('setLayerLevels', { layer: 'layer2', levels: levels });
+    }, 120);
+  }
+
+  $('abLayer2BaseAmt').addEventListener('input', onLayer2ConfigChange);
+  $('abLayer2MaxLvl').addEventListener('input', onLayer2ConfigChange);
+
+  $('abBtnLayer2SaveLevels').addEventListener('click', function(){
+    if (!socket || !currentView) return;
+    var levels = Array.prototype.map.call(document.querySelectorAll('.ab-layer2-level'), function(input) {
+      return Math.max(1, parseInt(input.value, 10) || 1);
+    });
+    layer2EditMode = false;
+    if ($('abLayer2EditToggle')) $('abLayer2EditToggle').checked = false;
+    lastKnownLayer2Levels = levels.slice();
+    socket.emit('setLayerLevels', { layer: 'layer2', levels: levels });
+    renderLayer2Levels(lastKnownLayer2Levels || [], lastKnownLayer2Level);
+  });
+
+  // Stop
+  $('abBtnStop').addEventListener('click', function(){
+    if (!socket || !currentView) return;
+    window._kpStopSent = true; // mark as user-initiated, suppress auto-stop handler
+    socket.emit('stop', { sessionId: kpSessionId || null, profit: kpLastPnl }); // targets server's viewingId
+  });
+
+  // Reset Stats
+  $('abBtnClearStats').addEventListener('click', function(){
+    if (socket && currentView) socket.emit('resetStats', {}); // targets server's viewingId
+  });
+
+  // Clear Log
+  $('abBtnClearLog').addEventListener('click', function(){
+    $('abLog').innerHTML = '';
+  });
+
+  // Base Amount / Max Level change
+  var configTimer = null;
+  function onConfigChange() {
+    clearTimeout(configTimer);
+    configTimer = setTimeout(function() {
+      if (socket && currentView) {
+        socket.emit('setLevels', { // targets server's viewingId
+          baseAmt: parseInt($('abBaseAmt').value) || 2,
+          maxLevel: parseInt($('abMaxLvl').value) || 10,
+        });
+      }
+    }, 500);
+  }
+  $('abBaseAmt').addEventListener('input', onConfigChange);
+  $('abMaxLvl').addEventListener('input', function(){
+    populateManualFollowerLevels(parseInt(this.value, 10) || 1);
+    onConfigChange();
+  });
+
+  // Watch Toggle
+  $('abWatchToggle').addEventListener('change', function(){
+    if (socket && currentView) {
+      socket.emit('setWatch', { // targets server's viewingId
+        enabled: this.checked,
+        count: parseInt($('abWatchCount').value) || 1,
+      });
+    }
+  });
+
+  // Watch Count
+  $('abWatchCount').addEventListener('change', function(){
+    if (socket && currentView) {
+      socket.emit('setWatch', { // targets server's viewingId
+        enabled: $('abWatchToggle').checked,
+        count: parseInt(this.value) || 1,
+      });
+    }
+  });
+
+  function populateManualFollowerLevels(count) {
+    var select = $('abManualFollowerLevel');
+    var previous = parseInt(select.value, 10) || 3;
+    select.innerHTML = '';
+    for (var i = 1; i <= (count || 1); i++) {
+      var option = document.createElement('option');
+      option.value = i;
+      option.textContent = 'Level ' + i;
+      select.appendChild(option);
+    }
+    select.value = Math.min(previous, count || 1);
+  }
+  populateManualFollowerLevels(parseInt($('abMaxLvl').value, 10));
+
+  /* ════════════════════════════════════════════════
+     COMPOUNDING MODE — JS
+     ════════════════════════════════════════════════ */
+
+  /* Client-side level calculator (mirrors server engine.js) */
+  function clientComputeLevels(fund, numLevels, mult) {
+    fund = Math.max(1, Math.round(fund));
+    numLevels = Math.max(2, Math.min(15, parseInt(numLevels, 10) || 4));
+    mult = mult || 2.15;
+    var ratios = [], coeff = 1;
+    for (var i = 0; i < numLevels; i++) { ratios.push(coeff); coeff *= mult; }
+    var totalRatio = ratios.reduce(function(s, r){ return s + r; }, 0);
+    var unit = fund / totalRatio;
+    var levels = ratios.slice(0, -1).map(function(r){ return Math.max(1, Math.round(unit * r)); });
+    var sumSoFar = levels.reduce(function(s, v){ return s + v; }, 0);
+    levels.push(Math.max(1, fund - sumSoFar));
+    return levels;
+  }
+
+  /* Renders the chip strip and the win-projection table */
+  function renderCompoundPreview(fund, numLevels) {
+    fund = parseFloat(fund) || 0;
+    numLevels = parseInt(numLevels, 10) || 4;
+    if (fund <= 0) {
+      $('abCompoundPreview').innerHTML = '<span style="color:var(--text3);font-size:11px">Enter a fund amount above.</span>';
+      $('abCompoundHead').innerHTML = '';
+      $('abCompoundBody2').innerHTML = '';
+      return;
+    }
+
+    /* ─ Level Chips ─ */
+    var levels0 = clientComputeLevels(fund, numLevels);
+    var totalRisk0 = levels0.reduce(function(s, v){ return s + v; }, 0);
+    var chipHtml = '';
+    levels0.forEach(function(amt, i){
+      var pct = totalRisk0 > 0 ? ((amt / totalRisk0) * 100).toFixed(1) : 0;
+      chipHtml += '<span class="kp-cmpd-chip">' +
+        '<span class="cl">LV' + (i + 1) + '</span>' +
+        '<span class="ca">₹' + amt + '</span>' +
+        '<span class="cp">' + pct + '%</span>' +
+        '</span>';
+    });
+    $('abCompoundPreview').innerHTML = chipHtml;
+
+    /* ─ Win Projection Table (5 rows) ─ */
+    /* Header */
+    var headHtml = '<th>WIN #</th><th>FUND</th>';
+    for (var h = 1; h <= numLevels; h++) headHtml += '<th>LV' + h + '</th>';
+    $('abCompoundHead').innerHTML = headHtml;
+
+    /* Win payout multiplier: 0.96 net for Big/Small at 1.96x */
+    var WIN_NET_MULT = 0.96;
+    var curFund = fund;
+    var tbody = '';
+    for (var w = 0; w < 5; w++) {
+      var lv = clientComputeLevels(curFund, numLevels);
+      var row = '<tr>';
+      row += '<td class="td-win">' + (w === 0 ? 'START' : 'Win ' + w) + '</td>';
+      row += '<td class="td-fund">₹' + Math.round(curFund).toLocaleString('en-IN') + '</td>';
+      lv.forEach(function(a){ row += '<td>₹' + a + '</td>'; });
+      row += '</tr>';
+      tbody += row;
+      /* Example projection: live mode instead adds the actual net profit
+         from whichever level wins. */
+      curFund = Math.round((curFund + lv[0] * WIN_NET_MULT) * 100) / 100;
+    }
+    $('abCompoundBody2').innerHTML = tbody;
+  }
+
+  
+    $('abTargetLevelBet').addEventListener('change', function(e) {
+      var on = e.target.checked;
+      if ($('abTargetLevelBody')) $('abTargetLevelBody').style.display = on ? '' : 'none';
+      if ($('abTlbWrap')) $('abTlbWrap').classList.toggle('cmpd-active', on);
+      if(socket && currentView) {
+        socket.emit('setTargetLevelBet', { platform: currentView.split(':')[0], phone: currentView.split(':')[1], enabled: on, targetLevel: parseInt($('abTargetLevelSel').value)||3 });
+      }
+    });
+    $('abTargetLevelSel').addEventListener('change', function(e) {
+      if($('abTargetLevelBet').checked && socket && currentView) {
+        socket.emit('setTargetLevelBet', { platform: currentView.split(':')[0], phone: currentView.split(':')[1], enabled: true, targetLevel: parseInt(e.target.value)||3 });
+      }
+    });
+
+    /* ════════════════════════════════════════════════
+       LEVEL JUMP MODE — JS
+       ════════════════════════════════════════════════ */
+    var LJ_PRESETS = {
+      option1: { title: 'Option 1', seq: [1, 3, 5, 7, 9, 11, 12, 13, 14, 15] },
+      option2: { title: 'Option 2', seq: [1, 3, 5, 7, 9, 10, 11, 12, 13, 14, 15, 16] },
+      option3: { title: 'Option 3', seq: [2, 4, 6, 8, 10, 11, 12, 13, 14, 15, 16] },
+    };
+
+    function renderLevelJumpChips() {
+      ['option1', 'option2', 'option3'].forEach(function(optKey, idx) {
+        var container = $('abLjChips' + (idx + 1));
+        if (!container) return;
+        var preset = LJ_PRESETS[optKey];
+        var html = '';
+        preset.seq.forEach(function(predLv, flIdx) {
+          html += '<span class="kp-lj-step-chip">' +
+            '<span class="fl">LV' + (flIdx + 1) + '</span>' +
+            '<span class="arrow">→</span>' +
+            '<span class="pl">P' + predLv + '</span>' +
+            '</span>';
+        });
+        container.innerHTML = html;
+      });
+    }
+    renderLevelJumpChips();
+
+    function getSelectedLevelJumpOption() {
+      var sel = document.querySelector('input[name="abLevelJumpOpt"]:checked');
+      return sel ? sel.value : 'option1';
+    }
+
+    function updateLevelJumpCardStyles() {
+      var selectedOpt = getSelectedLevelJumpOption();
+      var cards = document.querySelectorAll('.kp-lj-card');
+      cards.forEach(function(card) {
+        var radio = card.querySelector('input[type="radio"]');
+        if (radio) {
+          card.classList.toggle('active', radio.value === selectedOpt);
+        }
+      });
+    }
+
+    function emitLevelJump() {
+      if (!socket || !currentView) return;
+      var enabled = $('abLevelJumpToggle').checked;
+      var option = getSelectedLevelJumpOption();
+      var parts = currentView.split(':');
+      socket.emit('setLevelJump', {
+        platform: parts[0],
+        phone: parts[1],
+        enabled: enabled,
+        option: option,
+      });
+      updateLevelJumpCardStyles();
+    }
+
+    $('abLevelJumpToggle').addEventListener('change', function(e) {
+      var on = e.target.checked;
+      if ($('abLevelJumpBody')) $('abLevelJumpBody').style.display = on ? '' : 'none';
+      if ($('abLevelJumpWrap')) $('abLevelJumpWrap').classList.toggle('cmpd-active', on);
+      emitLevelJump();
+    });
+
+    document.querySelectorAll('input[name="abLevelJumpOpt"]').forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        updateLevelJumpCardStyles();
+        if ($('abLevelJumpToggle').checked) {
+          emitLevelJump();
+        }
+      });
+    });
+
+    /* Debounced emit of setCompounding to server */
+  var cmpdTimer = null;
+  function emitCompounding(resetFund) {
+    clearTimeout(cmpdTimer);
+    cmpdTimer = setTimeout(function(){
+      if (!socket || !currentView) return;
+      var enabled = $('abCompoundToggle').checked;
+      var fund    = parseFloat($('abCompoundFund').value) || 0;
+      var levels  = parseInt($('abCompoundLevels').value, 10) || 4;
+      socket.emit('setCompounding', { enabled: enabled, fund: fund, levels: levels, resetFund: !!resetFund });
+      if (enabled && fund > 0) renderCompoundPreview(fund, levels);
+    }, 500);
+  }
+
+  /* Toggle: show/hide body, add glow class, emit */
+  $('abCompoundToggle').addEventListener('change', function(){
+    var on = this.checked;
+    $('abCompoundBody').style.display  = on ? '' : 'none';
+    $('abCompoundingWrap').classList.toggle('cmpd-active', on);
+    emitCompounding(true);
+  });
+
+  /* Live preview on fund/levels change */
+  $('abCompoundFund').addEventListener('input', function(){
+    renderCompoundPreview(parseFloat(this.value) || 0, parseInt($('abCompoundLevels').value, 10) || 4);
+    emitCompounding(true);
+  });
+  $('abCompoundLevels').addEventListener('change', function(){
+    renderCompoundPreview(parseFloat($('abCompoundFund').value) || 0, parseInt(this.value, 10) || 4);
+    emitCompounding();
+  });
+  /* Initial preview render */
+  renderCompoundPreview(parseFloat($('abCompoundFund').value) || 0, parseInt($('abCompoundLevels').value, 10) || 4);
+  /* ════════════════════════════════════════════════ */
+
+  $('abManualFollowerToggle').addEventListener('change', function(){
+    $('abManualFollowerLevelWrap').style.display = this.checked ? '' : 'none';
+    manualFollowerEnabledForRender = this.checked;
+    renderLevels(lastKnownLevels || [], lastKnownLevel);
+    if (socket && currentView) socket.emit('setManualFollower', { enabled: this.checked, fromLevel: parseInt($('abManualFollowerLevel').value, 10) || 3 });
+  });
+  $('abManualFollowerLevel').addEventListener('change', function(){
+    manualFollowerFromLevelForRender = parseInt(this.value, 10) || 3;
+    renderLevels(lastKnownLevels || [], lastKnownLevel);
+    if (socket && currentView) socket.emit('setManualFollower', { enabled: $('abManualFollowerToggle').checked, fromLevel: manualFollowerFromLevelForRender });
+  });
+  function sendManualCommand(side) {
+    if (!kpIsDefault || !currentPeriod || !socket) return;
+    socket.emit('manualPrediction', { issue: currentPeriod, side: side, gameMode: currentGameMode });
+    $('abManualCommandStatus').textContent = side + ' sent for ...' + currentPeriod.slice(-8) + ' to all waiting accounts.';
+  }
+  $('abManualCommandBig').addEventListener('click', function(){ sendManualCommand('Big'); });
+  $('abManualCommandSmall').addEventListener('click', function(){ sendManualCommand('Small'); });
+
+  // Formula Popup
+  $('abBtnFormulaPopup').addEventListener('click', function(e) {
+    e.stopPropagation();
+    renderFormulaGrid($('abFormulaName').textContent);
+    $('abFormulaPopup').style.display = '';
+  });
+  $('abBtnLayer2FormulaPopup').addEventListener('click', function(e) {
+    e.stopPropagation();
+    renderFormulaGrid($('abLayer2FormulaName').textContent, 'layer2');
+    $('abFormulaPopup').style.display = '';
+  });
+  $('abFormulaActive').addEventListener('click', function() {
+    renderFormulaGrid($('abFormulaName').textContent);
+    $('abFormulaPopup').style.display = '';
+  });
+  $('abBtnFormulaClose').addEventListener('click', function(){
+    $('abFormulaPopup').style.display = 'none';
+  });
+
+  // Game mode toggle (30S ↔ 1M) — per account
+  function setGameMode(mode) {
+    if (!currentView) { return; }
+    if (mode === currentGameMode) return;
+    socket.emit('setGameMode', { gameMode: mode }); // targets server's viewingId
+    // optimistic UI; server confirms via 'state'
+  }
+  window.setGameMode = setGameMode;
+  $('abFormulaPopup').addEventListener('click', function(e){
+    if (e.target === this) this.style.display = 'none';
+  });
+
+  // Bet History Pagination
+  $('abBetHistPrev').addEventListener('click', function(){
+    if (betHistPage > 1) { betHistPage--; renderBetHistPage(); }
+  });
+  $('abBetHistNext').addEventListener('click', function(){
+    var totalPages = Math.ceil(betHistData.length / ROWS_PER_PAGE);
+    if (betHistPage < totalPages) { betHistPage++; renderBetHistPage(); }
+  });
+
+  // Prediction History Pagination
+  $('abPredHistPrev').addEventListener('click', function(){
+    if (predHistPage > 1) { predHistPage--; renderMergedHistory(); }
+  });
+  $('abPredHistNext').addEventListener('click', function(){
+    var rows = mergedHistoryRows;
+    if ($('abPredHistBetsOnly') && $('abPredHistBetsOnly').checked) {
+      rows = rows.filter(function(row) { return row.layer1.hasBet || row.layer2.hasBet; });
+    }
+    var totalPages = Math.ceil(rows.length / ROWS_PER_PAGE);
+    if (predHistPage < totalPages) { predHistPage++; renderMergedHistory(); }
+  });
+  $('abPredHistBetsOnly').addEventListener('change', function(){
+    predHistPage = 1;
+    renderMergedHistory();
+  });
+
+  // Edit Toggle for Levels
+  $('abEditToggle').addEventListener('change', function(){
+    editMode = this.checked;
+    if (lastKnownLevels) {
+      renderLevels(lastKnownLevels, lastKnownLevel);
+      updateConfigPreview(lastKnownLevels);
+    }
+  });
+
+  $('abLayer2EditToggle').addEventListener('change', function(){
+    layer2EditMode = this.checked;
+    renderLayer2Levels(lastKnownLayer2Levels || [], lastKnownLayer2Level);
+  });
+
+  // Bet Record
+  $('abBtnRefreshBR').addEventListener('click', function(){
+    betRecordPage = 1;
+    if (socket && currentView) socket.emit('getBetRecord', { page: 1 }); // targets server's viewingId
+  });
+
+  // ─────────────────────────────────────────────────────
+  // HISTORY EXPORT
+  // ─────────────────────────────────────────────────────
+  var _expRecords = [];
+
+  window.startHistoryExport = function() {
+    if (!socket) { expLog('err', 'Not connected to server.'); return; }
+    var totalWant = parseInt($('expRecords').value) || 500;
+    _expRecords = [];
+    $('expBtnFetch').disabled = true;
+    $('expBtnDownload').style.display = 'none';
+    $('expProgress').style.display = 'block';
+    $('expStats').style.display = 'none';
+    $('expLog').style.display = 'block';
+    $('expLog').innerHTML = '';
+    $('expBar').style.width = '10%';
+    $('expProgressText').textContent = 'Requesting ' + totalWant + ' records from server…';
+    expLog('info', 'Fetching ' + totalWant + ' records via server (signed + paginated)…');
+    socket.emit('exportHistory', { totalRecords: totalWant }); // targets server's viewingId
+  };
+
+  function _bindExpHistorySocket() {
+    socket.on('exportHistoryProgress', function(d) {
+      var pct = Math.round((d.page / d.maxPages) * 100);
+      $('expBar').style.width = pct + '%';
+      $('expProgressText').textContent = 'Page ' + d.page + ' / ' + d.maxPages + '  —  ' + d.total + ' records';
+      if (d.retrying) {
+        expLog('warn', '⚠ Page ' + d.page + ' retry ' + d.retrying + '/3 — waiting…');
+      } else if (d.error) {
+        expLog('err', 'Page ' + d.page + ' failed: ' + d.error);
+      } else if (d.done) {
+        expLog('info', 'Page ' + d.page + ': empty — no more records.');
+      } else {
+        expLog('ok', 'Page ' + d.page + '/' + d.maxPages + ' → total ' + d.total);
+      }
+    });
+    socket.on('exportHistoryResult', function(data) {
+      $('expBtnFetch').disabled = false;
+      if (!data.ok || !data.list || !data.list.length) {
+        $('expBar').style.width = '100%';
+        $('expProgressText').textContent = 'Failed.';
+        expLog('err', 'Export failed: ' + (data.msg || 'no records returned'));
+        return;
+      }
+      data.list.forEach(function(item) {
+        var n = parseInt(item.number);
+        _expRecords.push({
+          issueNumber: item.issueNumber || '',
+          number:      item.number !== undefined ? item.number : '',
+          bs:          n >= 5 ? 'B' : 'S',
+          colour:      item.colour || item.color || '',
+          openTime:    item.openTime || ''
+        });
+      });
+      $('expBar').style.width = '100%';
+      $('expProgressText').textContent = '✓ Done — ' + _expRecords.length + ' records fetched.';
+      expLog('ok', 'Complete: ' + _expRecords.length + ' records received from server.');
+      $('expBtnDownload').style.display = '';
+      expShowStats();
+    });
+  }
+
+  window.downloadHistoryCSV = function() {
+    if (!_expRecords.length) return;
+    var cols = ['issueNumber','number','bs','colour','openTime'];
+    var rows = [cols.join(',')];
+    _expRecords.forEach(function(r) {
+      rows.push(cols.map(function(c){ return '"' + String(r[c]||'').replace(/"/g,'""') + '"'; }).join(','));
+    });
+    var blob = new Blob([rows.join('\n')], {type:'text/csv'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'wingo_history_' + new Date().toISOString().replace(/[:.]/g,'-').slice(0,19) + '.csv';
+    a.click();
+    expLog('ok', 'CSV downloaded: ' + _expRecords.length + ' rows → ' + a.download);
+  };
+
+  function expLog(type, msg) {
+    var box = $('expLog');
+    var line = document.createElement('div');
+    var colors = {ok:'#34d399',err:'#f87171',warn:'#fbbf24',info:'#a78bfa'};
+    line.style.color = colors[type] || '#6677aa';
+    line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function expShowStats() {
+    var total = _expRecords.length;
+    var bigs  = _expRecords.filter(function(r){return r.bs==='B';}).length;
+    var smalls = total - bigs;
+    var maxRun = 1, curRun = 1;
+    for (var i = 1; i < _expRecords.length; i++) {
+      if (_expRecords[i].bs === _expRecords[i-1].bs) { curRun++; maxRun = Math.max(maxRun,curRun); }
+      else curRun = 1;
+    }
+    var grid = $('expStatsGrid');
+    var cell = function(val, lbl, col) {
+      return '<div style="text-align:center;padding:8px;background:#13131f;border:1px solid #1e1e35;border-radius:6px">' +
+        '<div style="font-size:1.2rem;font-weight:bold;color:' + (col||'#a78bfa') + '">' + val + '</div>' +
+        '<div style="font-size:10px;color:#555577;margin-top:2px;text-transform:uppercase">' + lbl + '</div></div>';
+    };
+    grid.innerHTML =
+      cell(total,   'Records') +
+      cell(bigs,    'Big ≥5',  '#f87171') +
+      cell(smalls,  'Small <5','#60a5fa') +
+      cell((bigs/total*100).toFixed(1)+'%', 'Big %') +
+      cell(maxRun,  'Max Streak','#fbbf24') +
+      cell((smalls/total*100).toFixed(1)+'%', 'Small %');
+    $('expStats').style.display = 'block';
+  }
+  $('abBetRecordPrev').addEventListener('click', function(){
+    // targets server's viewingId
+    if (betRecordPage > 1) { betRecordPage--; if (socket && currentView) socket.emit('getBetRecord', { page: betRecordPage }); }
+  });
+  $('abBetRecordNext').addEventListener('click', function(){
+    betRecordPage++;
+    if (socket && currentView) socket.emit('getBetRecord', { page: betRecordPage }); // targets server's viewingId
+  });
+
+  // ═════════════════════════════════════════════════════════════
+  // ─ AUTO STOP FEATURE
+  // ─ Three modes: Timer, Profit Target, Level Skip
+  // ═════════════════════════════════════════════════════════════
+  var autoStopState = {
+    enabled: false,
+    mode: null,      // 'timer' | 'profit' | 'level'
+    // Timer
+    timerEndTime: null,
+    timerCountdown: null,
+    // Profit
+    targetProfit: null,
+    profitSinceStart: 0,
+    // Level
+    targetLevel: null,
+    levelReached: false
+  };
+
+  function initAutoStop() {
+    var btn = $('abAutoStopToggleBtn');
+    var content = $('abAutoStopContent');
+    var disabled = $('abAutoStopDisabled');
+
+    btn.addEventListener('click', toggleAutoStop);
+
+    // Radio option selection
+    ['abAutoStopTimer', 'abAutoStopProfit', 'abAutoStopLevel'].forEach(function(id){
+      var radio = $(id);
+      if (radio) {
+        radio.addEventListener('change', function(){
+          var mode = this.value;
+          showAutoStopPanel(mode);
+        });
+      }
+    });
+
+    // Timer submit
+    $('abAutoStopTimerSubmit').addEventListener('click', submitTimer);
+
+    // Profit submit
+    $('abAutoStopProfitSubmit').addEventListener('click', submitProfit);
+
+    // Level submit
+    $('abAutoStopLevelSubmit').addEventListener('click', submitLevel);
+  }
+
+  function toggleAutoStop() {
+    autoStopState.enabled = !autoStopState.enabled;
+    var btn = $('abAutoStopToggleBtn');
+    var content = $('abAutoStopContent');
+    var disabled = $('abAutoStopDisabled');
+
+    if (autoStopState.enabled) {
+      btn.textContent = 'DISABLE';
+      btn.style.background = 'var(--red)';
+      content.style.display = '';
+      disabled.style.display = 'none';
+      toast('AutoStop', 'Enabled — Configure your stop condition', 'info');
+    } else {
+      btn.textContent = 'ENABLE';
+      btn.style.background = '';
+      content.style.display = 'none';
+      disabled.style.display = '';
+      stopTimer();
+      toast('AutoStop', 'Disabled', 'info');
+    }
+  }
+
+  function showAutoStopPanel(mode) {
+    $('abAutoStopTimerPanel').style.display = mode === 'timer' ? '' : 'none';
+    $('abAutoStopProfitPanel').style.display = mode === 'profit' ? '' : 'none';
+    $('abAutoStopLevelPanel').style.display = mode === 'level' ? '' : 'none';
+    autoStopState.mode = mode;
+  }
+
+  function submitTimer() {
+    var hours = parseInt($('abTimerHours').value) || 0;
+    var minutes = parseInt($('abTimerMinutes').value) || 0;
+
+    if (hours === 0 && minutes === 0) {
+      toast('Timer', 'Please set a time greater than 0', 'warn');
+      return;
+    }
+
+    var totalMs = (hours * 3600 + minutes * 60) * 1000;
+    autoStopState.timerEndTime = Date.now() + totalMs;
+    autoStopState.mode = 'timer';
+    autoStopState.levelReached = false;
+
+    var status = $('abTimerStatus');
+    status.textContent = 'Timer set for ' + String(hours).padStart(2,'0') + ':' + String(minutes).padStart(2,'0');
+    status.style.color = 'var(--green)';
+
+    startTimer();
+    updateAutoStopStatus();
+    toast('Timer', 'Timer started — Will stop after time runs out + one win', 'info');
+  }
+
+  function submitProfit() {
+    var target = parseFloat($('abTargetProfit').value);
+
+    if (!target || target <= 0) {
+      toast('Profit', 'Please enter a valid profit amount', 'warn');
+      return;
+    }
+
+    autoStopState.targetProfit = target;
+    autoStopState.mode = 'profit';
+    autoStopState.profitSinceStart = 0;
+    autoStopState.levelReached = false;
+
+    var status = $('abProfitStatus');
+    status.textContent = 'Target: ₹' + target.toFixed(2);
+    status.style.color = 'var(--green)';
+
+    updateAutoStopStatus();
+    toast('Profit', 'Target profit set to ₹' + target.toFixed(2) + ' — Will stop when reached + one win', 'info');
+  }
+
+  function submitLevel() {
+    var level = parseInt($('abLevelSelect').value, 10);
+
+    if (!level || level < 1) {
+      toast('Level', 'Please select a valid level', 'warn');
+      return;
+    }
+
+    autoStopState.targetLevel = level;
+    autoStopState.mode = 'level';
+    autoStopState.levelReached = false;
+
+    var status = $('abLevelStatus');
+    status.textContent = 'Will stop at Level ' + level;
+    status.style.color = 'var(--green)';
+
+    updateAutoStopStatus();
+    toast('Level', 'Level ' + level + ' selected — Will stop after the next win once this level is touched', 'info');
+  }
+
+  function updateLevelSelect(maxLevel) {
+    var select = $('abLevelSelect');
+    select.innerHTML = '<option value="">-- Select Level --</option>';
+    for (var i = 1; i <= maxLevel; i++) {
+      var opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = 'Level ' + i;
+      select.appendChild(opt);
+    }
+  }
+
+  function startTimer() {
+    stopTimer();
+    autoStopState.timerCountdown = setInterval(function(){
+      if (!autoStopState.enabled || autoStopState.mode !== 'timer') {
+        stopTimer();
+        return;
+      }
+
+      var now = Date.now();
+      var remaining = autoStopState.timerEndTime - now;
+
+      if (remaining <= 0) {
+        autoStopState.levelReached = true;
+        $('abTimerStatus').textContent = '⏳ Time reached! Waiting for one win to stop...';
+        $('abTimerStatus').style.color = 'var(--amber)';
+        stopTimer();
+        return;
+      }
+
+      var totalSecs = Math.ceil(remaining / 1000);
+      var h = Math.floor(totalSecs / 3600);
+      var m = Math.floor((totalSecs % 3600) / 60);
+      var s = totalSecs % 60;
+      var display = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+
+      $('abTimerStatus').textContent = '⏱️ ' + display;
+      $('abTimerStatus').style.color = 'var(--cyan)';
+    }, 500);
+  }
+
+  function stopTimer() {
+    if (autoStopState.timerCountdown) {
+      clearInterval(autoStopState.timerCountdown);
+      autoStopState.timerCountdown = null;
+    }
+  }
+
+  function updateAutoStopStatus() {
+    var status = $('abAutoStopLiveStatus');
+    if (!autoStopState.enabled) {
+      status.textContent = 'Active: —';
+      status.style.color = 'var(--text3)';
+      return;
+    }
+
+    var text = '';
+    if (autoStopState.mode === 'timer') {
+      if (autoStopState.timerEndTime) {
+        var remaining = autoStopState.timerEndTime - Date.now();
+        if (remaining > 0) {
+          var secs = Math.ceil(remaining / 1000);
+          var m = Math.floor(secs / 60);
+          var s = secs % 60;
+          text = '⏱️ Timer: ' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0') + ' remaining';
+        } else {
+          text = '⏳ Time reached — waiting for win';
+        }
+      }
+    } else if (autoStopState.mode === 'profit') {
+      text = '💰 Target: ₹' + autoStopState.targetProfit.toFixed(2);
+    } else if (autoStopState.mode === 'level') {
+      text = Number.isFinite(autoStopState.targetLevel)
+        ? '📊 Level: ' + autoStopState.targetLevel
+        : '📊 Select a level';
+    }
+
+    status.textContent = 'Active: ' + text;
+    status.style.color = autoStopState.levelReached ? 'var(--amber)' : 'var(--green)';
+  }
+
+  function checkAutoStop(currentLevel, currentPnl, justWon) {
+    if (!autoStopState.enabled) return false;
+
+    var shouldStop = false;
+    var reason = '';
+
+    if (autoStopState.mode === 'timer') {
+      if (!justWon) return false;
+      if (autoStopState.levelReached && justWon) {
+        shouldStop = true;
+        reason = 'Timer reached and won';
+      }
+    } else if (autoStopState.mode === 'profit') {
+      if (!justWon) return false;
+      if (currentPnl >= autoStopState.targetProfit && justWon) {
+        shouldStop = true;
+        reason = 'Profit target reached: ₹' + currentPnl.toFixed(2);
+      }
+    } else if (autoStopState.mode === 'level') {
+      /* Level mode: remember the level touch, then stop on the next win. */
+      if (Number.isFinite(autoStopState.targetLevel) && autoStopState.targetLevel >= 1 && currentLevel >= autoStopState.targetLevel) {
+        autoStopState.levelReached = true;
+      }
+      if (autoStopState.levelReached && justWon) {
+        shouldStop = true;
+        reason = 'Won after selected Level ' + autoStopState.targetLevel + ' — stopping';
+      }
+    }
+
+    if (shouldStop) {
+      var emoji = reason.indexOf('reached') > -1 ? '✅' : '🛑';
+      toast(emoji, reason, 'info');
+      autoStopState.enabled = false;
+      var btn = $('abAutoStopToggleBtn');
+      btn.textContent = 'ENABLE';
+      btn.style.background = '';
+      $('abAutoStopContent').style.display = 'none';
+      $('abAutoStopDisabled').style.display = '';
+      stopTimer();
+      return true;
+    }
+
+    updateAutoStopStatus();
+    return false;
+  }
+
+  initAutoStop();
+
+  // ═════════════════════════════════════════════════════════════
+  // ─ LAYER-2 AUTO STOP FEATURE
+  // ─ Independent of Default / Layer-1 AutoStop
+  // ═════════════════════════════════════════════════════════════
+  var layer2AutoStopState = {
+    enabled: false,
+    mode: null,      // 'timer' | 'profit' | 'level'
+    // Timer
+    timerEndTime: null,
+    timerCountdown: null,
+    // Profit
+    targetProfit: null,
+    profitSinceStart: 0,
+    // Level
+    targetLevel: null,
+    levelReached: false
+  };
+
+  function initLayer2AutoStop() {
+    var btn = $('abLayer2AutoStopToggleBtn');
+    if (btn) btn.addEventListener('click', toggleLayer2AutoStop);
+
+    // Radio option selection
+    ['abLayer2AutoStopTimer', 'abLayer2AutoStopProfit', 'abLayer2AutoStopLevel'].forEach(function(id){
+      var radio = $(id);
+      if (radio) {
+        radio.addEventListener('change', function(){
+          showLayer2AutoStopPanel(this.value);
+        });
+      }
+    });
+
+    // Timer submit
+    var timerBtn = $('abLayer2AutoStopTimerSubmit');
+    if (timerBtn) timerBtn.addEventListener('click', submitLayer2Timer);
+
+    // Profit submit
+    var profitBtn = $('abLayer2AutoStopProfitSubmit');
+    if (profitBtn) profitBtn.addEventListener('click', submitLayer2Profit);
+
+    // Level submit
+    var levelBtn = $('abLayer2AutoStopLevelSubmit');
+    if (levelBtn) levelBtn.addEventListener('click', submitLayer2Level);
+  }
+
+  function toggleLayer2AutoStop() {
+    layer2AutoStopState.enabled = !layer2AutoStopState.enabled;
+    var btn = $('abLayer2AutoStopToggleBtn');
+    var content = $('abLayer2AutoStopContent');
+    var disabled = $('abLayer2AutoStopDisabled');
+
+    if (layer2AutoStopState.enabled) {
+      if (btn) {
+        btn.textContent = 'DISABLE';
+        btn.style.background = 'var(--red)';
+      }
+      if (content) content.style.display = '';
+      if (disabled) disabled.style.display = 'none';
+      toast('Layer-2 AutoStop', 'Enabled — Configure stop condition for Layer-2', 'info');
+    } else {
+      if (btn) {
+        btn.textContent = 'ENABLE';
+        btn.style.background = '';
+      }
+      if (content) content.style.display = 'none';
+      if (disabled) disabled.style.display = '';
+      stopLayer2Timer();
+      toast('Layer-2 AutoStop', 'Disabled', 'info');
+    }
+    updateLayer2AutoStopStatus();
+  }
+
+  function showLayer2AutoStopPanel(mode) {
+    var pTimer = $('abLayer2AutoStopTimerPanel');
+    var pProfit = $('abLayer2AutoStopProfitPanel');
+    var pLevel = $('abLayer2AutoStopLevelPanel');
+    if (pTimer) pTimer.style.display = mode === 'timer' ? '' : 'none';
+    if (pProfit) pProfit.style.display = mode === 'profit' ? '' : 'none';
+    if (pLevel) pLevel.style.display = mode === 'level' ? '' : 'none';
+    layer2AutoStopState.mode = mode;
+  }
+
+  function submitLayer2Timer() {
+    var hEl = $('abLayer2TimerHours');
+    var mEl = $('abLayer2TimerMinutes');
+    var hours = parseInt(hEl ? hEl.value : 0, 10) || 0;
+    var minutes = parseInt(mEl ? mEl.value : 0, 10) || 0;
+
+    if (hours === 0 && minutes === 0) {
+      toast('Layer-2 Timer', 'Please set a time greater than 0', 'warn');
+      return;
+    }
+
+    var totalMs = (hours * 3600 + minutes * 60) * 1000;
+    layer2AutoStopState.timerEndTime = Date.now() + totalMs;
+    layer2AutoStopState.mode = 'timer';
+    layer2AutoStopState.levelReached = false;
+
+    var status = $('abLayer2TimerStatus');
+    if (status) {
+      status.textContent = 'Timer set for ' + String(hours).padStart(2,'0') + ':' + String(minutes).padStart(2,'0');
+      status.style.color = 'var(--green)';
+    }
+
+    startLayer2Timer();
+    updateLayer2AutoStopStatus();
+    toast('Layer-2 Timer', 'Timer started — Will stop Layer-2 after time runs out + one win', 'info');
+  }
+
+  function submitLayer2Profit() {
+    var pEl = $('abLayer2TargetProfit');
+    var target = parseFloat(pEl ? pEl.value : 0);
+
+    if (!target || target <= 0) {
+      toast('Layer-2 Profit', 'Please enter a valid profit amount', 'warn');
+      return;
+    }
+
+    layer2AutoStopState.targetProfit = target;
+    layer2AutoStopState.mode = 'profit';
+    layer2AutoStopState.profitSinceStart = 0;
+    layer2AutoStopState.levelReached = false;
+
+    var status = $('abLayer2ProfitStatus');
+    if (status) {
+      status.textContent = 'Target: ₹' + target.toFixed(2);
+      status.style.color = 'var(--green)';
+    }
+
+    updateLayer2AutoStopStatus();
+    toast('Layer-2 Profit', 'Target profit set to ₹' + target.toFixed(2) + ' — Will stop Layer-2 when reached + one win', 'info');
+  }
+
+  function submitLayer2Level() {
+    var lEl = $('abLayer2LevelSelect');
+    var level = parseInt(lEl ? lEl.value : 0, 10);
+
+    if (!level || level < 1) {
+      toast('Layer-2 Level', 'Please select a valid level', 'warn');
+      return;
+    }
+
+    layer2AutoStopState.targetLevel = level;
+    layer2AutoStopState.mode = 'level';
+    layer2AutoStopState.levelReached = false;
+
+    var status = $('abLayer2LevelStatus');
+    if (status) {
+      status.textContent = 'Will stop at Level ' + level;
+      status.style.color = 'var(--green)';
+    }
+
+    updateLayer2AutoStopStatus();
+    toast('Layer-2 Level', 'Level ' + level + ' selected — Will stop Layer-2 after the next win once this level is touched', 'info');
+  }
+
+  function updateLayer2LevelSelect(maxLevel) {
+    var select = $('abLayer2LevelSelect');
+    if (!select) return;
+    var currentVal = select.value;
+    select.innerHTML = '<option value="">-- Select Level --</option>';
+    for (var i = 1; i <= maxLevel; i++) {
+      var opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = 'Level ' + i;
+      if (String(i) === String(currentVal)) opt.selected = true;
+      select.appendChild(opt);
+    }
+  }
+
+  function startLayer2Timer() {
+    stopLayer2Timer();
+    layer2AutoStopState.timerCountdown = setInterval(function(){
+      if (!layer2AutoStopState.enabled || layer2AutoStopState.mode !== 'timer') {
+        stopLayer2Timer();
+        return;
+      }
+
+      var now = Date.now();
+      var remaining = layer2AutoStopState.timerEndTime - now;
+
+      if (remaining <= 0) {
+        layer2AutoStopState.levelReached = true;
+        var status = $('abLayer2TimerStatus');
+        if (status) {
+          status.textContent = '⏳ Time reached! Waiting for Layer-2 win to stop...';
+          status.style.color = 'var(--amber)';
+        }
+        stopLayer2Timer();
+        return;
+      }
+
+      var totalSecs = Math.ceil(remaining / 1000);
+      var h = Math.floor(totalSecs / 3600);
+      var m = Math.floor((totalSecs % 3600) / 60);
+      var s = totalSecs % 60;
+      var display = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+
+      var status = $('abLayer2TimerStatus');
+      if (status) {
+        status.textContent = '⏱️ ' + display;
+        status.style.color = 'var(--cyan)';
+      }
+    }, 500);
+  }
+
+  function stopLayer2Timer() {
+    if (layer2AutoStopState.timerCountdown) {
+      clearInterval(layer2AutoStopState.timerCountdown);
+      layer2AutoStopState.timerCountdown = null;
+    }
+  }
+
+  function resetLayer2AutoStop() {
+    layer2AutoStopState.enabled = false;
+    layer2AutoStopState.mode = null;
+    layer2AutoStopState.timerEndTime = null;
+    layer2AutoStopState.targetProfit = null;
+    layer2AutoStopState.targetLevel = null;
+    layer2AutoStopState.levelReached = false;
+    stopLayer2Timer();
+    var btn = $('abLayer2AutoStopToggleBtn');
+    if (btn) {
+      btn.textContent = 'ENABLE';
+      btn.style.background = '';
+    }
+    var content = $('abLayer2AutoStopContent');
+    if (content) content.style.display = 'none';
+    var disabled = $('abLayer2AutoStopDisabled');
+    if (disabled) disabled.style.display = '';
+    updateLayer2AutoStopStatus();
+  }
+
+  function updateLayer2AutoStopStatus() {
+    var status = $('abLayer2AutoStopLiveStatus');
+    if (!status) return;
+    if (!layer2AutoStopState.enabled) {
+      status.textContent = 'Active: —';
+      status.style.color = 'var(--text3)';
+      return;
+    }
+
+    var text = '';
+    if (layer2AutoStopState.mode === 'timer') {
+      if (layer2AutoStopState.timerEndTime) {
+        var remaining = layer2AutoStopState.timerEndTime - Date.now();
+        if (remaining > 0) {
+          var secs = Math.ceil(remaining / 1000);
+          var m = Math.floor(secs / 60);
+          var s = secs % 60;
+          text = '⏱️ Timer: ' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0') + ' remaining';
+        } else {
+          text = '⏳ Time reached — waiting for win';
+        }
+      }
+    } else if (layer2AutoStopState.mode === 'profit') {
+      text = '💰 Target: ₹' + (layer2AutoStopState.targetProfit ? layer2AutoStopState.targetProfit.toFixed(2) : '0.00');
+    } else if (layer2AutoStopState.mode === 'level') {
+      text = Number.isFinite(layer2AutoStopState.targetLevel)
+        ? '📊 Level: ' + layer2AutoStopState.targetLevel
+        : '📊 Select a level';
+    }
+
+    status.textContent = 'Active: ' + text;
+    status.style.color = layer2AutoStopState.levelReached ? 'var(--amber)' : 'var(--green)';
+  }
+
+  function checkLayer2AutoStop(currentLevel, currentPnl, justWon) {
+    if (!layer2AutoStopState.enabled) return false;
+
+    var shouldStop = false;
+    var reason = '';
+
+    if (layer2AutoStopState.mode === 'timer') {
+      if (!justWon) return false;
+      if (layer2AutoStopState.levelReached && justWon) {
+        shouldStop = true;
+        reason = 'Timer reached and won';
+      }
+    } else if (layer2AutoStopState.mode === 'profit') {
+      if (!justWon) return false;
+      if (currentPnl >= layer2AutoStopState.targetProfit && justWon) {
+        shouldStop = true;
+        reason = 'Profit target reached: ₹' + currentPnl.toFixed(2);
+      }
+    } else if (layer2AutoStopState.mode === 'level') {
+      if (Number.isFinite(layer2AutoStopState.targetLevel) && layer2AutoStopState.targetLevel >= 1 && currentLevel >= layer2AutoStopState.targetLevel) {
+        layer2AutoStopState.levelReached = true;
+      }
+      if (layer2AutoStopState.levelReached && justWon) {
+        shouldStop = true;
+        reason = 'Won after selected Level ' + layer2AutoStopState.targetLevel + ' — stopping';
+      }
+    }
+
+    if (shouldStop) {
+      var emoji = reason.indexOf('reached') > -1 ? '✅' : '🛑';
+      toast(emoji, 'Layer-2: ' + reason, 'info');
+      layer2AutoStopState.enabled = false;
+      var btn = $('abLayer2AutoStopToggleBtn');
+      if (btn) {
+        btn.textContent = 'ENABLE';
+        btn.style.background = '';
+      }
+      var content = $('abLayer2AutoStopContent');
+      if (content) content.style.display = 'none';
+      var disabled = $('abLayer2AutoStopDisabled');
+      if (disabled) disabled.style.display = '';
+      stopLayer2Timer();
+      return true;
+    }
+
+    updateLayer2AutoStopStatus();
+    return false;
+  }
+
+  initLayer2AutoStop();
+
+
+  /* ── Warmup: fetches 500 records via server token, then auto-starts ── */
+  function nexusWarmup() {
+    if (!socket || !currentView) { alert('Not connected / no account selected'); return; }
+    $('nxBtnWarmup').disabled = true;
+    $('nxBtnWarmup').textContent = '⏳ Warming up…';
+    $('nxWarmupBar').style.display = '';
+    $('nxWarmupFill').style.width = '5%';
+    $('nxWarmupStatus').textContent = 'Connecting to server…';
+    socket.emit('nexusWarmup', {}); // targets server's viewingId
+  }
+
+  socket && socket.on && (function(){
+    // bind warmup events after socket ready — re-bound on reconnect via _bindNexusSockets()
+  })();
+
+  function _bindNexusSockets() {
+    if (!socket) return;
+    socket.off('nexusWarmupProgress');
+    socket.off('nexusWarmupDone');
+    socket.off('nexusDecision');
+
+    socket.on('nexusWarmupProgress', function(d) {
+      var pct = d.maxPages > 0 ? Math.round(d.page / d.maxPages * 90) + 5 : 50;
+      $('nxWarmupFill').style.width = pct + '%';
+      $('nxWarmupStatus').textContent = d.status || ('Page ' + d.page + '/' + d.maxPages + ' → ' + d.total + ' records');
+    });
+
+    socket.on('nexusWarmupDone', function(d) {
+      $('nxWarmupFill').style.width = '100%';
+      if (!d.ok) {
+        $('nxWarmupStatus').textContent = '✗ Failed: ' + (d.msg || 'unknown error');
+        $('nxBtnWarmup').disabled = false;
+        $('nxBtnWarmup').textContent = '⚡ Warmup & Start';
+        return;
+      }
+      $('nxWarmupStatus').textContent = '✓ Warmed up on ' + d.total + ' records — auto-running';
+      $('nxHistoryInfo').textContent = d.total + ' records warmed up';
+      setTimeout(function(){ $('nxWarmupBar').style.display = 'none'; }, 2000);
+      $('nxBtnWarmup').textContent = '↺ Re-Warmup';
+      $('nxBtnWarmup').disabled = false;
+      // Auto-start
+      _nexusRunning = true;
+      $('nxBtnToggle').style.display = '';
+      $('nxBtnToggle').textContent = '⏹ Stop';
+      $('nxBtnToggle').style.background = 'linear-gradient(135deg,#dc2626,#991b1b)';
+      _updateNexusBadge('RUNNING');
+    });
+
+    socket.on('nexusDecision', function(d) { _handleNexusDecision(d); });
+  }
+
+  function nexusToggle() {
+    _nexusRunning = !_nexusRunning;
+    $('nxBtnToggle').textContent = _nexusRunning ? '⏹ Stop' : '▶ Resume';
+    $('nxBtnToggle').style.background = _nexusRunning
+      ? 'linear-gradient(135deg,#dc2626,#991b1b)'
+      : 'linear-gradient(135deg,#059669,#065f46)';
+    _updateNexusBadge(_nexusRunning ? 'RUNNING' : 'PAUSED');
+  }
+
+  // Called by socket.on('newDraw') every time a result arrives
+  function nexusOnDraw(issue, result, number) {
+    if (!_nexusRunning) return;
+    var nextIssue = String(parseInt(issue, 10) + 1);
+    socket.emit('nexusPredict', {
+      nextIssue:  nextIssue,
+      lastIssue:  _nexusLastIssue,
+      lastResult: _nexusLastResult,
+      lastPred:   _nexusLastPred,
+      lastPct:    _nexusLastPct,
+      lastReason: _nexusLastReason,
+      lastNumber: _nexusLastNum,
+    });
+    // save for next round feedback
+    _nexusLastIssue  = issue;
+    _nexusLastResult = result;
+    _nexusLastNum    = number;
+  }
+
+  function _handleNexusDecision(d) {
+    var stats = d.stats || {};
+    var isBig = d.pred === 'B';
+    var stake = d.stake || 1;
+    var level = d.level || 1;
+
+    // Update stats
+    $('nxBets').textContent  = stats.bets  != null ? stats.bets  : '—';
+    $('nxWins').textContent  = stats.wins  != null ? stats.wins  : '—';
+    $('nxAcc').textContent   = stats.acc   || '—';
+    $('nxRoll').textContent  = stats.rollAcc || '—';
+    var streak = stats.streak || 0;
+    $('nxStreak').textContent = streak > 0 ? '+'+streak : String(streak);
+    $('nxStreak').style.color = streak > 0 ? '#4ade80' : streak < 0 ? '#f87171' : '#888';
+    $('nxLevel').textContent  = 'L' + level;
+    $('nxLevel').style.color  = level >= 5 ? '#f87171' : level >= 3 ? '#fbbf24' : '#4ade80';
+    $('nxMaxL').textContent   = 'L' + (stats.maxLevel || 1);
+    $('nxMCL').textContent    = stats.maxConsecLoss != null ? stats.maxConsecLoss : '—';
+
+    // Prediction box
+    $('nexusPredBadge').textContent = isBig ? 'BIG' : 'SML';
+    $('nexusPredBadge').style.background = isBig ? 'rgba(248,113,113,0.15)' : 'rgba(96,165,250,0.15)';
+    $('nexusPredBadge').style.color      = isBig ? '#f87171' : '#60a5fa';
+    $('nexusSignal').textContent = '⚡ BET ' + (isBig ? 'BIG (≥5)' : 'SMALL (<5)') + '  ·  L' + level + '  ×' + stake;
+    $('nexusSignal').style.color = isBig ? '#f87171' : '#60a5fa';
+    $('nexusReason').textContent = d.reason || '—';
+    $('nexusConfPct').textContent = (d.pct || 0).toFixed(1) + '%';
+    $('nexusConfPct').style.color = d.pct >= 63 ? '#4ade80' : d.pct >= 55 ? '#fbbf24' : '#888';
+    $('nexusStakeLabel').textContent = 'stake ×' + stake;
+    $('nexusStakeLabel').style.color = level >= 5 ? '#f87171' : level >= 3 ? '#fbbf24' : '#6677aa';
+
+    _updateNexusBadge('BET');
+
+    // Store current prediction for next feedback
+    _nexusLastPred   = d.pred;
+    _nexusLastPct    = d.pct || 0;
+    _nexusLastReason = d.reason || '';
+
+    // History table
+    if (d.recentRows && d.recentRows.length > 0) _renderNexusHistory(d.recentRows);
+  }
+
+  function _renderNexusHistory(rows) {
+    var tbody = $('nxHistoryBody');
+    if (!tbody) return;
+    var html = '';
+    for (var i = rows.length - 1; i >= 0; i--) {
+      var r = rows[i];
+      var isWin  = r.result === 'WIN';
+      var isBigBS   = r.bs   === 'B';
+      var isBigPred = r.pred === 'B';
+      var lvl = r.level || 1;
+      var lvlColor = lvl >= 5 ? '#f87171' : lvl >= 3 ? '#fbbf24' : '#6677aa';
+      html += '<tr style="border-bottom:1px solid #111122">'
+        + '<td style="padding:3px 8px;color:#445">' + String(r.issue||'').slice(-8) + '</td>'
+        + '<td style="padding:3px 6px;color:#aaa;text-align:center">' + (r.number||'?') + '</td>'
+        + '<td style="padding:3px 6px;text-align:center;color:' + (isBigBS ? '#f87171' : '#60a5fa') + ';font-weight:700">' + (isBigBS ? 'BIG' : 'SML') + '</td>'
+        + '<td style="padding:3px 6px;text-align:center;color:' + (isBigPred ? '#f87171' : '#60a5fa') + ';font-weight:600">' + (r.pred === 'B' ? 'BIG' : r.pred === 'S' ? 'SML' : r.pred||'—') + '</td>'
+        + '<td style="padding:3px 6px;text-align:center;color:' + (r.pct >= 63 ? '#4ade80' : r.pct >= 55 ? '#fbbf24' : '#555') + '">' + (r.pct||0).toFixed(1) + '%</td>'
+        + '<td style="padding:3px 6px;text-align:center;color:' + lvlColor + ';font-weight:700">L' + lvl + '</td>'
+        + '<td style="padding:3px 6px;text-align:center;font-weight:700;color:' + (isWin ? '#4ade80' : '#f87171') + '">' + (isWin ? '✓W' : '✗L') + '</td>'
+        + '<td style="padding:3px 8px;color:#445;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + (r.reason||'—').slice(0,50) + '</td>'
+        + '</tr>';
+    }
+    tbody.innerHTML = html || '<tr><td colspan="8" style="text-align:center;color:#333;padding:8px">— no history yet —</td></tr>';
+  }
+
+  function nexusResetStats() {
+    if (!socket) return;
+    socket.emit('nexusWarmup', {}); // targets server's viewingId
+    $('nxHistoryBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:#333;padding:12px">— no history yet —</td></tr>';
+    ['nxBets','nxWins','nxAcc','nxRoll','nxStreak','nxLevel','nxMaxL','nxMCL'].forEach(function(id){ $(id).textContent='—'; });
+    $('nexusPredBadge').textContent = '—';
+    $('nexusSignal').textContent = 'Waiting for next round…';
+    $('nexusReason').textContent = '—';
+    $('nexusConfPct').textContent = '—%';
+    _updateNexusBadge('IDLE');
+  }
+
+  function _updateNexusBadge(state) {
+    var badge = $('nexusBadge');
+    if (!badge) return;
+    var cfg = {
+      IDLE:    { text:'IDLE',    bg:'#1e1035', color:'#a78bfa' },
+      RUNNING: { text:'RUNNING', bg:'#052e16', color:'#4ade80' },
+      PAUSED:  { text:'PAUSED',  bg:'#2a1f00', color:'#fbbf24' },
+      BET:     { text:'BET ✓',   bg:'#052e16', color:'#4ade80' },
+    };
+    var c = cfg[state] || cfg.IDLE;
+    badge.textContent = c.text;
+    badge.style.background = c.bg;
+    badge.style.color = c.color;
+  }
+
+})();
+</script>
+
+</body>
+</html>
